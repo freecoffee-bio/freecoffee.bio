@@ -9,7 +9,7 @@ export type NotificationTemplate = typeof notificationTemplates.$inferSelect;
 export const defaultNotificationTemplates = [
   { eventKey: 'support-receipt', displayName: 'Support payment receipt', description: 'Sent to a supporter after a payment is completed.', subject: 'Your {{siteName}} support receipt', bodyText: 'Thank you for supporting {{siteName}}. Your payment of {{amount}} {{currency}} was confirmed.', bodyHtml: '<p>Thank you for supporting {{siteName}}.</p><p>Your payment of <strong>{{amount}} {{currency}}</strong> was confirmed.</p>' },
   { eventKey: 'creator-support-notification', displayName: 'New support notification', description: 'Sent to the creator when someone sends support.', subject: 'You received support on {{siteName}}', bodyText: '{{supporterName}} sent {{amount}} {{currency}}.', bodyHtml: '<p>{{supporterName}} sent <strong>{{amount}} {{currency}}</strong>.</p>' },
-  { eventKey: 'order-receipt', displayName: 'Order payment receipt', description: 'Sent to a buyer after a shop order is paid.', subject: 'Your {{siteName}} purchase', bodyText: 'Your order {{orderId}} was confirmed.\n\nDownload links (valid for 7 days, up to 3 downloads):\n{{downloadLinks}}', bodyHtml: '<p>Your order <strong>{{orderId}}</strong> was confirmed.</p><p>{{downloadLinks}}</p>' },
+  { eventKey: 'order-receipt', displayName: 'Order payment receipt', description: 'Sent to a buyer after a shop order is paid.', subject: 'Your {{siteName}} purchase', bodyText: 'Your order {{orderId}} was confirmed.\n\nSign in to your account and open My orders to download your purchase.\n\n{{downloadLinks}}', bodyHtml: '<p>Your order <strong>{{orderId}}</strong> was confirmed.</p><p>Sign in to your account and open My orders to download your purchase.</p><p>{{downloadLinks}}</p>' },
 ];
 
 export async function ensureNotificationTemplates() {
@@ -41,6 +41,7 @@ export async function dispatchEmailNotification(input: { recipient: string; even
   const id = crypto.randomUUID();
   const now = new Date();
   const inserted = await db.insert(notificationDeliveries).values({ id, channel: 'email', recipient: input.recipient, template: input.eventKey, referenceId: input.referenceId ?? null, dedupeKey, payloadJson: JSON.stringify(input.data), status: 'pending', attempts: 0, availableAt: now, createdAt: now, updatedAt: now }).onConflictDoNothing({ target: notificationDeliveries.dedupeKey }).returning({ id: notificationDeliveries.id });
+
   return inserted.length > 0;
 }
 
@@ -50,6 +51,7 @@ const RETRY_DELAYS = [60, 300, 1800, 7200];
 export async function processNotificationBatch(limit = 8) {
   const db = createDb(env.DB);
   const now = new Date();
+
   const stale = new Date(now.getTime() - 10 * 60_000);
   await db.update(notificationDeliveries).set({ status: 'retry', availableAt: now, lockedAt: null, updatedAt: now }).where(and(eq(notificationDeliveries.status, 'processing'), lte(notificationDeliveries.lockedAt, stale)));
   const templates = await db.select().from(notificationTemplates).where(eq(notificationTemplates.channel, 'email'));
@@ -62,6 +64,7 @@ export async function processNotificationBatch(limit = 8) {
     if (result[0]) claimed.push(result[0]);
   }
   if (!claimed.length) return 0;
+
   let connection: Awaited<ReturnType<typeof connectMailer>> | undefined;
   try {
     connection = await connectMailer();
@@ -82,9 +85,16 @@ export async function processNotificationBatch(limit = 8) {
       }
       if (index < claimed.length - 1) await wait(6_000);
     }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const retryAt = new Date(Date.now() + RETRY_DELAYS[0] * 1000);
+    await db.update(notificationDeliveries).set({ status: 'retry', attempts: 1, availableAt: retryAt, lockedAt: null, lastError: errorMessage, updatedAt: new Date() }).where(and(eq(notificationDeliveries.status, 'processing'), inArray(notificationDeliveries.id, claimed.map((job) => job.id))));
+    console.error('Notification batch failed', JSON.stringify({ count: claimed.length, error: errorMessage }));
+    throw error;
   } finally {
     await connection?.mailer.close();
   }
+
   return claimed.length;
 }
 

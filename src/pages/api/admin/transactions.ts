@@ -2,7 +2,7 @@ import type { APIRoute } from 'astro';
 import { and, desc, eq, gte, inArray, like, lte } from 'drizzle-orm';
 import { env } from 'cloudflare:workers';
 import { createDb } from '../../../db';
-import { downloadGrants, orderItems, orders, paymentRecords, supportTransactions } from '../../../db/schema';
+import { orderItems, orders, paymentRecords, supportTransactions } from '../../../db/schema';
 import { createAuth } from '../../../server/auth';
 import { isRoot } from '../../../server/admin';
 import { getOrCreateCreator } from '../../../server/creator';
@@ -35,12 +35,11 @@ export const GET: APIRoute = async ({ request }) => {
   if (orderId) {
     const order = creatorOrders.find((item) => item.id === orderId);
     if (!order) return Response.json({ error: 'Order not found.' }, { status: 404 });
-    const [items, grants, orderPayments] = await Promise.all([
+    const [items, orderPayments] = await Promise.all([
       db.select().from(orderItems).where(eq(orderItems.orderId, orderId)),
-      db.select({ id: downloadGrants.id, productId: downloadGrants.productId, expiresAt: downloadGrants.expiresAt, downloadCount: downloadGrants.downloadCount, maxDownloads: downloadGrants.maxDownloads, createdAt: downloadGrants.createdAt }).from(downloadGrants).where(eq(downloadGrants.orderId, orderId)),
       db.select().from(paymentRecords).where(eq(paymentRecords.referenceId, orderId)),
     ]);
-    return Response.json({ order, items, grants, payments: orderPayments });
+    return Response.json({ order, items, payments: orderPayments });
   }
   return Response.json({ supports, orders: creatorOrders, payments });
 };

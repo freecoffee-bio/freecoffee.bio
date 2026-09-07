@@ -1,4 +1,4 @@
-import { check, foreignKey, integer, index, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { check, integer, index, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
 export const users = sqliteTable('user', {
@@ -297,20 +297,6 @@ export const orderItems = sqliteTable('order_items', {
   check('order_items_unit_amount_nonnegative', sql`${table.unitAmount} >= 0`),
 ]);
 
-export const downloadGrants = sqliteTable('download_grants', {
-  id: text('id').primaryKey(),
-  orderId: text('order_id').notNull(),
-  productId: text('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
-  tokenHash: text('token_hash').notNull().unique(),
-  expiresAt: integer('expires_at', { mode: 'timestamp' }).notNull(),
-  downloadCount: integer('download_count').notNull().default(0),
-  maxDownloads: integer('max_downloads').notNull().default(3),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-}, (table) => [
-  foreignKey({ columns: [table.orderId, table.productId], foreignColumns: [orderItems.orderId, orderItems.productId], name: 'download_grants_order_product_fk' }).onDelete('cascade'),
-  uniqueIndex('download_grants_order_product_unique').on(table.orderId, table.productId),
-  check('download_grants_count_valid', sql`${table.downloadCount} >= 0 AND ${table.maxDownloads} > 0`),
-]);
 
 export const paymentEvents = sqliteTable('payment_events', {
   id: text('id').primaryKey(),

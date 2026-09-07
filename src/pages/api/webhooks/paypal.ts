@@ -25,6 +25,7 @@ export const POST: APIRoute = async ({ request }) => {
   try { event = JSON.parse(payload) as typeof event; } catch (error) { console.error('Invalid PayPal webhook JSON', { id, error, payload }); return publicError('Invalid webhook payload.', 400, id); }
   if (!event.id) return publicError('Invalid event.', 400, id);
   const inserted = await recordPaymentEvent('paypal', event.id, payload);
+
   if (!inserted) return Response.json({ received: true }, { headers: { 'x-request-id': id } });
   try {
     if (event.event_type === 'PAYMENT.CAPTURE.COMPLETED' || event.event_type === 'CHECKOUT.ORDER.COMPLETED') {

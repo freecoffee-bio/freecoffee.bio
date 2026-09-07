@@ -1,7 +1,7 @@
 import { and, eq } from 'drizzle-orm';
 import { env } from 'cloudflare:workers';
 import { createDb } from '../db';
-import { creatorPageSettings, creatorProfiles, downloadGrants, orderItems, orders, paymentEvents, paymentRecords, products, supportTransactions, productFiles, users, siteSettings } from '../db/schema';
+import { creatorPageSettings, creatorProfiles, orderItems, orders, paymentEvents, paymentRecords, products, supportTransactions, users, siteSettings } from '../db/schema';
 import { dispatchEmailNotification } from './notifications';
 import { getSiteSettings } from './site-settings';
 import { convertCurrency } from './exchange-rate';
@@ -139,10 +139,18 @@ export async function markPaymentComplete(referenceId: string, provider: string,
   if (payment.providerPaymentId && payment.providerPaymentId !== providerPaymentId) throw new Error('Payment reference does not match the checkout.');
   if (actualAmount !== undefined && actualAmount !== payment.amount) throw new Error('Provider payment amount does not match the checkout.');
   if (actualCurrency !== undefined && actualCurrency.toUpperCase() !== payment.currency.toUpperCase()) throw new Error('Provider payment currency does not match the checkout.');
-  if (payment.status === 'paid') return;
-  if (payment.status !== 'pending') throw new Error('Payment is not eligible for completion.');
-  const [claimed] = await db.update(paymentRecords).set({ status: 'paid', providerPaymentId, updatedAt: now }).where(and(eq(paymentRecords.id, payment.id), eq(paymentRecords.status, 'pending'))).returning({ id: paymentRecords.id });
-  if (!claimed) return;
+
+  if (payment.status === 'paid') {
+    // A previous webhook may have marked the payment paid before notification
+    // enqueueing failed. Continue through the idempotent fulfillment path so a
+    // later webhook can repair the missing notification.
+
+  } else {
+    if (payment.status !== 'pending') throw new Error('Payment is not eligible for completion.');
+    const [claimed] = await db.update(paymentRecords).set({ status: 'paid', providerPaymentId, updatedAt: now }).where(and(eq(paymentRecords.id, payment.id), eq(paymentRecords.status, 'pending'))).returning({ id: paymentRecords.id });
+    if (!claimed) return;
+
+  }
   if (payment.kind === 'support') {
     await db.update(supportTransactions).set({ status: 'paid', paidAt: now, providerPaymentId }).where(eq(supportTransactions.id, referenceId));
     const [support] = await db.select().from(supportTransactions).where(eq(supportTransactions.id, referenceId)).limit(1);
@@ -153,23 +161,11 @@ export async function markPaymentComplete(referenceId: string, provider: string,
     }
   } else if (payment.kind === 'order') {
     await db.update(orders).set({ status: 'paid', paidAt: now, providerPaymentId }).where(eq(orders.id, referenceId));
-    const items = await db.select().from(orderItems).where(eq(orderItems.orderId, referenceId));
-    const downloadLinks: string[] = [];
-    const siteSettings = await getSiteSettings();
-    for (const item of items) {
-      if (!item.productId) continue;
-      const [file] = await db.select().from(productFiles).where(eq(productFiles.productId, item.productId)).limit(1);
-      if (!file) continue;
-      const token = crypto.randomUUID();
-      const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
-      const tokenHash = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
-      await db.insert(downloadGrants).values({ id: crypto.randomUUID(), orderId: referenceId, productId: item.productId, tokenHash, expiresAt: new Date(Date.now() + 7 * 86400000), maxDownloads: 3, createdAt: now }).onConflictDoNothing({ target: [downloadGrants.orderId, downloadGrants.productId] });
-      if (siteSettings.siteUrl) downloadLinks.push(new URL(`/api/download/${token}`, `${siteSettings.siteUrl}/`).toString());
-    }
     const [order] = await db.select().from(orders).where(eq(orders.id, referenceId)).limit(1);
-    if (order) await sendNotification(order.buyerEmail, 'order-receipt', referenceId, { siteName: 'FreeCoffee.bio', orderId: order.id, amount: formatMoney(order.totalAmount, order.currency as Currency), currency: order.currency, downloadLinks: downloadLinks.join('\n') });
+    if (order) await sendNotification(order.buyerEmail, 'order-receipt', referenceId, { siteName: 'FreeCoffee.bio', orderId: order.id, amount: formatMoney(order.totalAmount, order.currency as Currency), currency: order.currency, downloadLinks: 'Sign in to your account and open My orders to download your purchase.' });
   }
 }
+
 
 export async function recordPaymentEvent(provider: string, providerEventId: string, payload: string) {
   const db = createDb(env.DB);

@@ -21,15 +21,15 @@ export const POST: APIRoute = async ({ request }) => {
   const secret = settings?.stripeWebhookSecret;
   if (!signature || !secret) return publicError('Webhook is not configured.', 503, id);
   if (!(await verifyStripeSignature(payload, signature, secret))) return publicError('Invalid signature.', 400, id);
-  let event: { id?: string; type?: string; data?: { object?: { id?: string; metadata?: { reference_id?: string }; payment_status?: string; amount_total?: number; currency?: string } } };
+  let event: { id?: string; type?: string; data?: { object?: { id?: string; client_reference_id?: string; metadata?: { reference_id?: string }; payment_status?: string; amount_total?: number; currency?: string } } };
   try { event = JSON.parse(payload) as typeof event; } catch (error) { console.error('Invalid Stripe webhook JSON', { id, error, payload }); return publicError('Invalid webhook payload.', 400, id); }
   if (!event.id) return publicError('Invalid event.', 400, id);
   const inserted = await recordPaymentEvent('stripe', event.id, payload);
 
   if (!inserted) return Response.json({ received: true }, { headers: { 'x-request-id': id } });
   try {
-    if (event.type === 'checkout.session.completed' && event.data?.object?.payment_status === 'paid') {
-      const referenceId = event.data.object.metadata?.reference_id;
+    if ((event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') && event.data?.object?.payment_status === 'paid') {
+      const referenceId = event.data.object.client_reference_id || event.data.object.metadata?.reference_id;
       if (referenceId && event.data.object.id) {
         const amount = event.data.object.amount_total;
                 const currency = event.data.object.currency;

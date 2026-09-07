@@ -31,6 +31,7 @@ async function createStripeCheckout(input: PaymentInput): Promise<PaymentCheckou
     'line_items[0][price_data][product_data][name]': input.description,
     'line_items[0][price_data][unit_amount]': String(input.amount),
     'line_items[0][quantity]': '1',
+    client_reference_id: input.referenceId,
     'metadata[reference_id]': input.referenceId,
   });
   const response = await fetch('https://api.stripe.com/v1/checkout/sessions', { method: 'POST', headers: { Authorization: `Basic ${btoa(`${key}:`)}`, 'Content-Type': 'application/x-www-form-urlencoded' }, body });

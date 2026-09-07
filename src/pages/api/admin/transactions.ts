@@ -2,7 +2,7 @@ import type { APIRoute } from 'astro';
 import { and, desc, eq, gte, inArray, like, lte } from 'drizzle-orm';
 import { env } from 'cloudflare:workers';
 import { createDb } from '../../../db';
-import { orderItems, orders, paymentRecords, supportTransactions } from '../../../db/schema';
+import { orderItems, orders, paymentEvents, paymentRecords, supportTransactions } from '../../../db/schema';
 import { createAuth } from '../../../server/auth';
 import { isRoot } from '../../../server/admin';
 import { getOrCreateCreator } from '../../../server/creator';
@@ -36,17 +36,19 @@ export const GET: APIRoute = async ({ request }) => {
   if (orderId) {
     const order = creatorOrders.find((item) => item.id === orderId);
     if (!order) return Response.json({ error: 'Order not found.' }, { status: 404 });
-    const [items, orderPayments] = await Promise.all([
+    const [items, orderPayments, orderEvents] = await Promise.all([
       db.select().from(orderItems).where(eq(orderItems.orderId, orderId)),
       db.select().from(paymentRecords).where(eq(paymentRecords.referenceId, orderId)),
+      db.select().from(paymentEvents).where(eq(paymentEvents.provider, order.provider || '')),
     ]);
-    return Response.json({ reference: order, items, payments: orderPayments });
+    return Response.json({ reference: order, items, payments: orderPayments, events: orderEvents.filter((event) => event.payload.includes(orderId)) });
   }
   if (supportId) {
     const support = supports.find((item) => item.id === supportId);
     if (!support) return Response.json({ error: 'Support payment not found.' }, { status: 404 });
     const supportPayments = await db.select().from(paymentRecords).where(eq(paymentRecords.referenceId, supportId));
-    return Response.json({ reference: support, items: [], payments: supportPayments });
+    const supportEvents = await db.select().from(paymentEvents).where(eq(paymentEvents.provider, support.provider || ''));
+    return Response.json({ reference: support, items: [], payments: supportPayments, events: supportEvents.filter((event) => event.payload.includes(supportId)) });
   }
   return Response.json({ supports, orders: creatorOrders, payments });
 };

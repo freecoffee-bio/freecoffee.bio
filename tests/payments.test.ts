@@ -73,6 +73,7 @@ test('builds Stripe checkout parameters with reference metadata', () => {
     'line_items[0][quantity]': '1',
     client_reference_id: 'order_123',
     'metadata[reference_id]': 'order_123',
+    'payment_intent_data[metadata][reference_id]': 'order_123',
   });
 });
 

@@ -33,15 +33,22 @@ export const POST: APIRoute = async ({ request }) => {
 
   if (!inserted) return Response.json({ received: true }, { headers: { 'x-request-id': id } });
   try {
-    if ((event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') && event.data?.object?.payment_status === 'paid') {
-      const referenceId = event.data.object.client_reference_id || event.data.object.metadata?.reference_id || (event.data.object.id ? await findPaymentReference('stripe', event.data.object.id) : null);
-      if (referenceId && event.data.object.id) {
-        const amount = event.data.object.amount_total;
-                const currency = event.data.object.currency;
-                if (!Number.isSafeInteger(amount) || typeof currency !== 'string') throw new Error('Stripe payment amount is unavailable.');
-                await markPaymentComplete(referenceId, 'stripe', event.data.object.id, amount, currency);
-        await updatePaymentEvent('stripe', event.id, 'processed');
-      } else await updatePaymentEvent('stripe', event.id, 'ignored', 'Missing payment reference.');
+    if (event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') {
+      const session = event.data?.object;
+      if (!session) throw new Error('Stripe checkout session is missing.');
+      if (session.payment_status !== 'paid') {
+        await updatePaymentEvent('stripe', event.id, 'ignored', `Checkout session payment status is ${session.payment_status || 'missing'}.`);
+      } else {
+        const referenceId = session.client_reference_id || session.metadata?.reference_id || (session.id ? await findPaymentReference('stripe', session.id) : null);
+        if (referenceId && session.id) {
+          const amount = session.amount_total;
+          const currency = session.currency;
+          if (!Number.isSafeInteger(amount) || typeof currency !== 'string') throw new Error('Stripe payment amount is unavailable.');
+          await markPaymentComplete(referenceId, 'stripe', session.id, amount, currency);
+          await updatePaymentEvent('stripe', event.id, 'processed');
+        } else await updatePaymentEvent('stripe', event.id, 'ignored', 'Missing payment reference.');
+      
+      }
     } else await updatePaymentEvent('stripe', event.id, 'ignored');
   } catch (error) {
     await updatePaymentEvent('stripe', event.id, 'failed', error instanceof Error ? error.message : String(error));

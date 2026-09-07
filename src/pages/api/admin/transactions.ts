@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { and, desc, eq, gte, inArray, like, lte } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, like, lte, or } from 'drizzle-orm';
 import { env } from 'cloudflare:workers';
 import { createDb } from '../../../db';
 import { orderItems, orders, paymentEvents, paymentRecords, supportTransactions } from '../../../db/schema';
@@ -39,16 +39,16 @@ export const GET: APIRoute = async ({ request }) => {
     const [items, orderPayments, orderEvents] = await Promise.all([
       db.select().from(orderItems).where(eq(orderItems.orderId, orderId)),
       db.select().from(paymentRecords).where(eq(paymentRecords.referenceId, orderId)),
-      db.select().from(paymentEvents).where(eq(paymentEvents.provider, order.provider || '')),
+      db.select().from(paymentEvents).where(and(eq(paymentEvents.provider, order.provider || ''), or(...[orderId, order.providerPaymentId].filter((value): value is string => Boolean(value)).map((value) => like(paymentEvents.payload, `%${value}%`))))),
     ]);
-    return Response.json({ reference: order, items, payments: orderPayments, events: orderEvents.filter((event) => event.payload.includes(orderId)) });
+    return Response.json({ reference: order, items, payments: orderPayments, events: orderEvents });
   }
   if (supportId) {
     const support = supports.find((item) => item.id === supportId);
     if (!support) return Response.json({ error: 'Support payment not found.' }, { status: 404 });
     const supportPayments = await db.select().from(paymentRecords).where(eq(paymentRecords.referenceId, supportId));
-    const supportEvents = await db.select().from(paymentEvents).where(eq(paymentEvents.provider, support.provider || ''));
-    return Response.json({ reference: support, items: [], payments: supportPayments, events: supportEvents.filter((event) => event.payload.includes(supportId)) });
+    const supportEvents = await db.select().from(paymentEvents).where(and(eq(paymentEvents.provider, support.provider || ''), or(...[supportId, support.providerPaymentId].filter((value): value is string => Boolean(value)).map((value) => like(paymentEvents.payload, `%${value}%`)))));
+    return Response.json({ reference: support, items: [], payments: supportPayments, events: supportEvents });
   }
   return Response.json({ supports, orders: creatorOrders, payments });
 };

@@ -19,6 +19,7 @@ const providerDetails = {
   stripe: {
     name: 'Stripe',
     description: 'Add the Stripe API credentials used to create checkouts and verify webhooks.',
+    webhookPath: '/api/webhooks/stripe',
     fields: [
       { name: 'stripeSecretKey', label: 'Secret key', placeholder: 'sk_test_...', description: 'Use a restricted or test key while setting up your shop.' },
       { name: 'stripeWebhookSecret', label: 'Webhook signing secret', placeholder: 'whsec_...', description: 'Required to confirm successful payments securely.' },
@@ -27,6 +28,7 @@ const providerDetails = {
   paypal: {
     name: 'PayPal',
     description: 'Add the PayPal sandbox credentials used to create checkouts and verify webhooks.',
+    webhookPath: '/api/webhooks/paypal',
     fields: [
       { name: 'paypalClientId', label: 'Client ID', placeholder: 'PayPal client ID', description: 'Use your PayPal sandbox application credentials.' },
       { name: 'paypalClientSecret', label: 'Client secret', placeholder: 'PayPal client secret', description: 'This value is stored securely and never shown again.' },
@@ -108,6 +110,7 @@ export function PaymentAccountDialog({ provider, connected, paypalSandbox = fals
         <DialogHeader>
           <DialogTitle>{connected ? `Update ${details.name} credentials` : `Connect ${details.name}`}</DialogTitle>
           <DialogDescription>{details.description} Existing saved credentials are not displayed; enter all fields to replace them.</DialogDescription>
+          <p className="rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">Webhook endpoint: <code className="break-all text-foreground">{details.webhookPath}</code>. Configure the full site URL plus this path in the provider dashboard.</p>
         </DialogHeader>
         <form className="grid gap-4" onSubmit={(event) => void submit(event)}>
           {provider === 'paypal' && <Field orientation="horizontal" className="items-center justify-between rounded-lg border px-3 py-3"><div><FieldLabel htmlFor="paypal-sandbox">Sandbox</FieldLabel><FieldDescription>Use PayPal test accounts and the sandbox API.</FieldDescription></div><Switch id="paypal-sandbox" checked={sandbox} onCheckedChange={setSandbox} /></Field>}

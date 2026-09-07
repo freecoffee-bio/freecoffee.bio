@@ -13,9 +13,15 @@ async function verifyStripeSignature(payload: string, header: string, secret: st
   return signatures.includes(expected);
 }
 
-export const GET: APIRoute = async () => {
+export const GET: APIRoute = async ({ request }) => {
   const settings = await getPaymentSettings();
-  return Response.json({ endpoint: 'stripe-webhook', method: 'POST', configured: Boolean(settings?.stripeWebhookSecret), message: 'Stripe sends signed POST requests to this endpoint.' });
+  return Response.json({
+    endpoint: 'stripe-webhook',
+    method: 'POST',
+    url: new URL('/api/webhooks/stripe', request.url).toString(),
+    configured: Boolean(settings?.stripeWebhookSecret),
+    message: 'Configure this exact URL in Stripe Dashboard → Developers → Webhooks and use the signing secret from that endpoint.',
+  });
 };
 
 export const POST: APIRoute = async ({ request }) => {

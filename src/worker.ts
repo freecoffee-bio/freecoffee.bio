@@ -1,9 +1,11 @@
-import astroServer from '@astrojs/cloudflare/entrypoints/server';
+import { handle } from '@astrojs/cloudflare/handler';
 import { runScheduledTasks } from './server/scheduled';
 
 export default {
-  fetch: astroServer.fetch,
-  async scheduled(controller: ScheduledController) {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext) {
+    return handle(request, env, ctx);
+  },
+  async scheduled(controller: ScheduledController, _env: Env, _ctx: ExecutionContext) {
     try {
       await runScheduledTasks();
     } catch (error) {

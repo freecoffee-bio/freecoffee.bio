@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { KeyRound, Link2, Unlink } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -11,6 +12,7 @@ type Provider = 'stripe' | 'paypal'
 type Props = {
   provider: Provider
   connected: boolean
+  paypalSandbox?: boolean
 }
 
 const providerDetails = {
@@ -33,9 +35,10 @@ const providerDetails = {
   },
 } as const
 
-export function PaymentAccountDialog({ provider, connected }: Props) {
+export function PaymentAccountDialog({ provider, connected, paypalSandbox = false }: Props) {
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
+    const [sandbox, setSandbox] = useState(paypalSandbox)
   const details = providerDetails[provider]
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -43,15 +46,15 @@ export function PaymentAccountDialog({ provider, connected }: Props) {
     setBusy(true)
     try {
       const data = new FormData(event.currentTarget)
-      const credentials = Object.fromEntries(details.fields.map((field) => [field.name, String(data.get(field.name) || '').trim()]))
-      if (Object.values(credentials).some((value) => !value)) {
+      const values = details.fields.map((field) => String(data.get(field.name) || '').trim())
+      if (values.some((value) => !value)) {
         showToast(`Enter all ${details.name} credentials.`)
         return
       }
       const settingsResponse = await fetch('/api/admin/payment-settings', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(credentials),
+        body: JSON.stringify({ provider, credentials: provider === 'paypal' ? { clientId: values[0], clientSecret: values[1], webhookId: values[2] } : { secretKey: values[0], webhookSecret: values[1] }, options: provider === 'paypal' ? { sandbox } : {} }),
       })
       const settingsResult = await settingsResponse.json().catch(() => ({})) as { error?: string }
       if (!settingsResponse.ok) throw new Error(settingsResult.error || `Unable to save ${details.name} credentials.`)
@@ -107,6 +110,7 @@ export function PaymentAccountDialog({ provider, connected }: Props) {
           <DialogDescription>{details.description} Existing saved credentials are not displayed; enter all fields to replace them.</DialogDescription>
         </DialogHeader>
         <form className="grid gap-4" onSubmit={(event) => void submit(event)}>
+          {provider === 'paypal' && <Field orientation="horizontal" className="items-center justify-between rounded-lg border px-3 py-3"><div><FieldLabel htmlFor="paypal-sandbox">Sandbox</FieldLabel><FieldDescription>Use PayPal test accounts and the sandbox API.</FieldDescription></div><Switch id="paypal-sandbox" checked={sandbox} onCheckedChange={setSandbox} /></Field>}
           {details.fields.map((field) => <Field key={field.name}><FieldLabel htmlFor={`${provider}-${field.name}`}>{field.label}</FieldLabel><Input id={`${provider}-${field.name}`} name={field.name} type="password" placeholder={field.placeholder} autoComplete="new-password" required /><FieldDescription>{field.description}</FieldDescription></Field>)}
           <DialogFooter><Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={busy}>Cancel</Button><Button type="submit" disabled={busy}>{busy ? 'Saving...' : connected ? 'Update and verify' : `Connect ${details.name}`}</Button></DialogFooter>
         </form>

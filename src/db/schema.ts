@@ -60,13 +60,10 @@ export const siteSettings = sqliteTable('site_settings', {
   siteName: text('site_name').notNull().default('FreeCoffee.bio'),
   currency: text('currency').notNull().default('USD'),
   taxRate: integer('tax_rate').notNull().default(0),
-  stripeSecretKey: text('stripe_secret_key').notNull().default(''),
-  stripeWebhookSecret: text('stripe_webhook_secret').notNull().default(''),
-  paypalClientId: text('paypal_client_id').notNull().default(''),
-  paypalClientSecret: text('paypal_client_secret').notNull().default(''),
-  paypalWebhookId: text('paypal_webhook_id').notNull().default(''),
+  paymentProviders: text('payment_providers').notNull().default('{}'),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
+
 
 export const exchangeRates = sqliteTable('exchange_rates', {
   id: integer('id').primaryKey({ autoIncrement: true }),

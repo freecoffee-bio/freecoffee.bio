@@ -8,12 +8,13 @@ async function verifyPayPalWebhook(request: Request, payload: string) {
   const webhookId = settings?.paypalWebhookId;
   const clientId = settings?.paypalClientId;
   const clientSecret = settings?.paypalClientSecret;
+    const apiBase = settings?.paypalSandbox === true ? 'https://api-m.sandbox.paypal.com' : 'https://api-m.paypal.com';
   if (!webhookId || !clientId || !clientSecret) return false;
-  const tokenResponse = await fetch('https://api-m.sandbox.paypal.com/v1/oauth2/token', { method: 'POST', headers: { Authorization: `Basic ${btoa(`${clientId}:${clientSecret}`)}`, 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'grant_type=client_credentials' });
+  const tokenResponse = await fetch(`${apiBase}/v1/oauth2/token`, { method: 'POST', headers: { Authorization: `Basic ${btoa(`${clientId}:${clientSecret}`)}`, 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'grant_type=client_credentials' });
   if (!tokenResponse.ok) return false;
   const token = (await tokenResponse.json() as { access_token?: string }).access_token;
   if (!token) return false;
-  const verification = await fetch('https://api-m.sandbox.paypal.com/v1/notifications/verify-webhook-signature', { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ auth_algo: request.headers.get('paypal-auth-algo'), cert_url: request.headers.get('paypal-cert-url'), transmission_id: request.headers.get('paypal-transmission-id'), transmission_sig: request.headers.get('paypal-transmission-sig'), transmission_time: request.headers.get('paypal-transmission-time'), webhook_id: webhookId, webhook_event: JSON.parse(payload) }) });
+  const verification = await fetch(`${apiBase}/v1/notifications/verify-webhook-signature`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ auth_algo: request.headers.get('paypal-auth-algo'), cert_url: request.headers.get('paypal-cert-url'), transmission_id: request.headers.get('paypal-transmission-id'), transmission_sig: request.headers.get('paypal-transmission-sig'), transmission_time: request.headers.get('paypal-transmission-time'), webhook_id: webhookId, webhook_event: JSON.parse(payload) }) });
   return verification.ok && (await verification.json() as { verification_status?: string }).verification_status === 'SUCCESS';
 }
 

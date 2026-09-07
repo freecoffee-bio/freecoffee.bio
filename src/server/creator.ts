@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { env } from 'cloudflare:workers';
 import { createDb } from '../db';
+import { getPaymentSettings } from './payments';
 import { creatorPageSettings, creatorPaymentAccounts, creatorProfiles, creatorCryptoWallets, galleryItems, posts, products as productsTable, smtpSettings, siteSettings, supportTransactions } from '../db/schema';
 
 function slugify(value: string) {
@@ -19,7 +20,7 @@ export async function getPublicCreator(handle: string, includeDrafts = false) {
     db.select().from(posts).where(includeDrafts ? eq(posts.creatorId, creator.id) : and(eq(posts.creatorId, creator.id), eq(posts.status, 'published'))).orderBy(desc(posts.publishedAt)), 
     db.select({ name: supportTransactions.displayName, message: supportTransactions.message, amount: supportTransactions.amount, createdAt: supportTransactions.createdAt, anonymous: supportTransactions.anonymous }).from(supportTransactions).where(and(eq(supportTransactions.creatorId, creator.id), eq(supportTransactions.status, 'paid'))).orderBy(desc(supportTransactions.createdAt)).limit(10),
     db.select({ amount: sql<number>`coalesce(sum(${supportTransactions.amount}), 0)` }).from(supportTransactions).where(and(eq(supportTransactions.creatorId, creator.id), eq(supportTransactions.status, 'paid'))),
-    db.select({ stripeSecretKey: siteSettings.stripeSecretKey, stripeWebhookSecret: siteSettings.stripeWebhookSecret, paypalClientId: siteSettings.paypalClientId, paypalClientSecret: siteSettings.paypalClientSecret, paypalWebhookId: siteSettings.paypalWebhookId, currency: siteSettings.currency }).from(siteSettings).where(eq(siteSettings.id, 1)).limit(1),
+    db.select({ currency: siteSettings.currency }).from(siteSettings).where(eq(siteSettings.id, 1)).limit(1),
 
   ]);
   return {
@@ -38,8 +39,8 @@ export async function getPublicCreator(handle: string, includeDrafts = false) {
     } : null,
     currency: settings[0]?.currency ?? 'USD',
     paymentProviders: {
-      stripe: Boolean(settings[0]?.stripeSecretKey && settings[0]?.stripeWebhookSecret),
-      paypal: Boolean(settings[0]?.paypalClientId && settings[0]?.paypalClientSecret && settings[0]?.paypalWebhookId),
+      stripe: Boolean((await getPaymentSettings()).stripeSecretKey && (await getPaymentSettings()).stripeWebhookSecret),
+      paypal: Boolean((await getPaymentSettings()).paypalClientId && (await getPaymentSettings()).paypalClientSecret && (await getPaymentSettings()).paypalWebhookId),
     },
   };
 }

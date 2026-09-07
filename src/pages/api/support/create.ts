@@ -6,9 +6,7 @@ import { getSiteCallbackUrl, getSiteSettings } from '../../../server/site-settin
 import { amountToMinor } from '../../../server/money';
 import { enforceRateLimit } from '../../../server/rate-limit';
 
-function callbackUrl(request: Request, path: string) {
-  return new URL(path, request.url).toString();
-}
+
 
 export const POST: APIRoute = async ({ request }) => {
   const id = requestId(request);
@@ -32,8 +30,8 @@ export const POST: APIRoute = async ({ request }) => {
       displayName: typeof body.displayName === 'string' ? body.displayName : undefined,
       message: typeof body.message === 'string' ? body.message : undefined,
       anonymous: body.anonymous === true,
-      returnUrl: `${await getSiteCallbackUrl('/support/success').catch(() => callbackUrl(request, '/support/success'))}?reference={REFERENCE_ID}`,
-      cancelUrl: await getSiteCallbackUrl(`/c/${encodeURIComponent(handle)}`).catch(() => callbackUrl(request, `/c/${encodeURIComponent(handle)}`)),
+      returnUrl: `${await getSiteCallbackUrl('/support/success')}?reference={REFERENCE_ID}`,
+      cancelUrl: await getSiteCallbackUrl(`/c/${encodeURIComponent(handle)}`),
     });
     return Response.json({ checkoutUrl: result.url, id: result.id, userId: user?.id ?? null }, { headers: { 'x-request-id': id } });
   } catch (error) {

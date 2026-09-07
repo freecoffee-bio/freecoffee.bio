@@ -3,7 +3,7 @@ import { isRoot } from '../../../server/admin';
 import { createAuth } from '../../../server/auth';
 import { updateCreatorProfile, updatePageSettings } from '../../../server/creator';
 import { amountToMinor } from '../../../server/money';
-import { getSiteSettings } from '../../../server/site-settings';
+import { getSiteSettings, updateSiteSettings } from '../../../server/site-settings';
 
 async function getRootUser(request: Request) {
   const session = await createAuth().api.getSession({ headers: request.headers });
@@ -15,6 +15,10 @@ export const POST: APIRoute = async ({ request }) => {
   if (!user) return new Response('Unauthorized', { status: 401 });
   try {
     const body = await request.json() as Record<string, unknown>;
+    if (body.siteUrl !== undefined) {
+      if (typeof body.siteUrl !== 'string' || !/^https?:\/\/[^\s]+$/i.test(body.siteUrl) || body.siteUrl.length > 500) throw new Error('Enter a valid site URL.');
+      await updateSiteSettings({ siteUrl: body.siteUrl });
+    }
     const creator = await updateCreatorProfile(user, {
       handle: typeof body.handle === 'string' ? body.handle : '',
       displayName: typeof body.displayName === 'string' ? body.displayName : user.name,

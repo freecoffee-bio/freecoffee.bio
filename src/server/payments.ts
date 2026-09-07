@@ -3,50 +3,43 @@ import { env } from 'cloudflare:workers';
 import { createDb } from '../db';
 import { creatorPageSettings, creatorProfiles, orderItems, orders, paymentEvents, paymentRecords, products, supportTransactions, users, siteSettings } from '../db/schema';
 import { dispatchEmailNotification } from './notifications';
-import { getSiteSettings } from './site-settings';
+import { getPaymentProviderConfig, getSiteSettings } from './site-settings';
+import { buildPayPalCheckoutPayload, buildStripeCheckoutPayload, paypalApiBase } from './payment-payloads';
 import { convertCurrency } from './exchange-rate';
-import { calculateTax, formatMoney, isCurrency, minorToAmount, type Currency } from './money';
+import { calculateTax, formatMoney, isCurrency, type Currency } from './money';
 
 export type PaymentProviderName = 'stripe' | 'paypal';
 
 type PaymentInput = { provider: PaymentProviderName; referenceId: string; amount: number; currency: Currency; description: string; returnUrl: string; cancelUrl: string; anonymous?: boolean };
 
-type PaymentCheckout = { url: string; providerPaymentId: string };
+type PaymentCheckout = { url: string; providerPaymentId: string; requestPayload?: string };
 
 export async function getPaymentSettings() {
-  const db = createDb(env.DB);
-  const [settings] = await db.select({ stripeSecretKey: siteSettings.stripeSecretKey, stripeWebhookSecret: siteSettings.stripeWebhookSecret, paypalClientId: siteSettings.paypalClientId, paypalClientSecret: siteSettings.paypalClientSecret, paypalWebhookId: siteSettings.paypalWebhookId }).from(siteSettings).where(eq(siteSettings.id, 1)).limit(1);
-  return settings;
+  const settings = await getSiteSettings();
+  const stripe = getPaymentProviderConfig(settings, 'stripe');
+  const paypal = getPaymentProviderConfig(settings, 'paypal');
+  return { stripeSecretKey: stripe.credentials.secretKey ?? '', stripeWebhookSecret: stripe.credentials.webhookSecret ?? '', paypalClientId: paypal.credentials.clientId ?? '', paypalClientSecret: paypal.credentials.clientSecret ?? '', paypalWebhookId: paypal.credentials.webhookId ?? '', paypalSandbox: paypal.options.sandbox === true };
 }
 
 async function createStripeCheckout(input: PaymentInput): Promise<PaymentCheckout> {
   const settings = await getPaymentSettings();
   const key = settings?.stripeSecretKey; 
   if (!key) throw new Error('Stripe is not configured.');
-  const body = new URLSearchParams({
-    mode: 'payment',
-    success_url: input.returnUrl,
-    cancel_url: input.cancelUrl,
-    'line_items[0][price_data][currency]': input.currency.toLowerCase(),
-    'line_items[0][price_data][product_data][name]': input.description,
-    'line_items[0][price_data][unit_amount]': String(input.amount),
-    'line_items[0][quantity]': '1',
-    client_reference_id: input.referenceId,
-    'metadata[reference_id]': input.referenceId,
-  });
+  const body = buildStripeCheckoutPayload(input);
   const response = await fetch('https://api.stripe.com/v1/checkout/sessions', { method: 'POST', headers: { Authorization: `Basic ${btoa(`${key}:`)}`, 'Content-Type': 'application/x-www-form-urlencoded' }, body });
   if (!response.ok) throw new Error(`Stripe checkout failed with status ${response.status}.`);
   const result = await response.json() as { id?: string; url?: string };
   if (!result.id || !result.url) throw new Error('Stripe returned an invalid checkout session.');
-  return { providerPaymentId: result.id, url: result.url };
+  return { providerPaymentId: result.id, url: result.url, requestPayload: JSON.stringify(Object.fromEntries(body)) };
 }
+
 
 async function getPayPalAccessToken() {
   const settings = await getPaymentSettings();
   const clientId = settings?.paypalClientId;
   const clientSecret = settings?.paypalClientSecret;
   if (!clientId || !clientSecret) throw new Error('PayPal is not configured.');
-  const response = await fetch('https://api-m.sandbox.paypal.com/v1/oauth2/token', { method: 'POST', headers: { Authorization: `Basic ${btoa(`${clientId}:${clientSecret}`)}`, 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'grant_type=client_credentials' });
+  const response = await fetch(`${paypalApiBase(settings?.paypalSandbox === true)}/v1/oauth2/token`, { method: 'POST', headers: { Authorization: `Basic ${btoa(`${clientId}:${clientSecret}`)}`, 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'grant_type=client_credentials' });
   if (!response.ok) throw new Error(`PayPal authentication failed with status ${response.status}.`);
   const result = await response.json() as { access_token?: string };
   if (!result.access_token) throw new Error('PayPal did not return an access token.');
@@ -55,12 +48,14 @@ async function getPayPalAccessToken() {
 
 async function createPayPalCheckout(input: PaymentInput): Promise<PaymentCheckout> {
   const token = await getPayPalAccessToken();
-  const response = await fetch('https://api-m.sandbox.paypal.com/v2/checkout/orders', { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ intent: 'CAPTURE', purchase_units: [{ reference_id: input.referenceId, custom_id: input.referenceId, description: input.description, amount: { currency_code: input.currency.toUpperCase(), value: minorToAmount(input.amount, input.currency) } }], application_context: { return_url: input.returnUrl, cancel_url: input.cancelUrl, user_action: 'PAY_NOW' } }) });
+  const settings = await getPaymentSettings();
+  const requestPayload = buildPayPalCheckoutPayload(input);
+  const response = await fetch(`${paypalApiBase(settings?.paypalSandbox === true)}/v2/checkout/orders`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(requestPayload) });
   if (!response.ok) throw new Error(`PayPal order creation failed with status ${response.status}.`);
   const result = await response.json() as { id?: string; links?: Array<{ rel?: string; href?: string }> };
   const approve = result.links?.find((link) => link.rel === 'approve')?.href;
   if (!result.id || !approve) throw new Error('PayPal returned an invalid checkout order.');
-  return { providerPaymentId: result.id, url: approve };
+  return { providerPaymentId: result.id, url: approve, requestPayload: JSON.stringify(requestPayload) };
 }
 
 export async function createSupportCheckout(input: { handle: string; amount: number; currency: Currency; provider: PaymentProviderName; email: string; displayName?: string; message?: string; anonymous?: boolean; returnUrl: string; cancelUrl: string }) {
@@ -82,7 +77,7 @@ export async function createSupportCheckout(input: { handle: string; amount: num
   try {
     const checkout = input.provider === 'stripe' ? await createStripeCheckout({ provider: input.provider, referenceId: id, amount: input.amount, currency: input.currency, description: `Support ${creator.displayName}`, returnUrl: input.returnUrl.replace('{REFERENCE_ID}', id), cancelUrl: input.cancelUrl }) : await createPayPalCheckout({ provider: input.provider, referenceId: id, amount: input.amount, currency: input.currency, description: `Support ${creator.displayName}`, returnUrl: input.returnUrl.replace('{REFERENCE_ID}', id), cancelUrl: input.cancelUrl });
     await db.update(supportTransactions).set({ providerPaymentId: checkout.providerPaymentId }).where(eq(supportTransactions.id, id));
-    await db.update(paymentRecords).set({ providerPaymentId: checkout.providerPaymentId, updatedAt: new Date() }).where(and(eq(paymentRecords.referenceId, id), eq(paymentRecords.provider, input.provider)));
+    await db.update(paymentRecords).set({ providerPaymentId: checkout.providerPaymentId, rawReference: checkout.requestPayload ?? null, updatedAt: new Date() }).where(and(eq(paymentRecords.referenceId, id), eq(paymentRecords.provider, input.provider)));
     return { id, ...checkout };
   } catch (error) {
     await db.update(supportTransactions).set({ status: 'failed' }).where(eq(supportTransactions.id, id));
@@ -119,7 +114,7 @@ export async function createOrderCheckout(input: { handle: string; productId: st
   try {
     const checkout = input.provider === 'stripe' ? await createStripeCheckout({ provider: input.provider, referenceId: orderId, amount: settlement.amount, currency: settlementCurrency, description: product.name, returnUrl: input.returnUrl.replace('{REFERENCE_ID}', orderId), cancelUrl: input.cancelUrl }) : await createPayPalCheckout({ provider: input.provider, referenceId: orderId, amount: settlement.amount, currency: settlementCurrency, description: product.name, returnUrl: input.returnUrl.replace('{REFERENCE_ID}', orderId), cancelUrl: input.cancelUrl });
     await db.update(orders).set({ providerPaymentId: checkout.providerPaymentId }).where(eq(orders.id, orderId));
-    await db.update(paymentRecords).set({ providerPaymentId: checkout.providerPaymentId, updatedAt: new Date() }).where(eq(paymentRecords.referenceId, orderId));
+    await db.update(paymentRecords).set({ providerPaymentId: checkout.providerPaymentId, rawReference: checkout.requestPayload ?? null, updatedAt: new Date() }).where(and(eq(paymentRecords.referenceId, orderId), eq(paymentRecords.provider, input.provider)));
     return { id: orderId, ...checkout };
   } catch (error) {
     await db.update(orders).set({ status: 'failed' }).where(eq(orders.id, orderId));
@@ -130,6 +125,12 @@ export async function createOrderCheckout(input: { handle: string; productId: st
 
 async function sendNotification(recipient: string, template: string, referenceId: string, data: Record<string, string>) {
   await dispatchEmailNotification({ recipient, eventKey: template, referenceId, data });
+}
+
+export async function findPaymentReference(provider: string, providerPaymentId: string) {
+  const db = createDb(env.DB);
+  const [payment] = await db.select({ referenceId: paymentRecords.referenceId }).from(paymentRecords).where(and(eq(paymentRecords.provider, provider), eq(paymentRecords.providerPaymentId, providerPaymentId))).limit(1);
+  return payment?.referenceId ?? null;
 }
 
 export async function markPaymentComplete(referenceId: string, provider: string, providerPaymentId: string, actualAmount?: number, actualCurrency?: string) {

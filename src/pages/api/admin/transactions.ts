@@ -32,6 +32,7 @@ export const GET: APIRoute = async ({ request }) => {
   const referenceIds = [...supports.map((item) => item.id), ...creatorOrders.map((item) => item.id)];
   const payments = referenceIds.length ? await db.select().from(paymentRecords).where(inArray(paymentRecords.referenceId, referenceIds)).orderBy(desc(paymentRecords.createdAt)) : [];
   const orderId = url.searchParams.get('orderId');
+  const supportId = url.searchParams.get('supportId');
   if (orderId) {
     const order = creatorOrders.find((item) => item.id === orderId);
     if (!order) return Response.json({ error: 'Order not found.' }, { status: 404 });
@@ -39,7 +40,13 @@ export const GET: APIRoute = async ({ request }) => {
       db.select().from(orderItems).where(eq(orderItems.orderId, orderId)),
       db.select().from(paymentRecords).where(eq(paymentRecords.referenceId, orderId)),
     ]);
-    return Response.json({ order, items, payments: orderPayments });
+    return Response.json({ reference: order, items, payments: orderPayments });
+  }
+  if (supportId) {
+    const support = supports.find((item) => item.id === supportId);
+    if (!support) return Response.json({ error: 'Support payment not found.' }, { status: 404 });
+    const supportPayments = await db.select().from(paymentRecords).where(eq(paymentRecords.referenceId, supportId));
+    return Response.json({ reference: support, items: [], payments: supportPayments });
   }
   return Response.json({ supports, orders: creatorOrders, payments });
 };

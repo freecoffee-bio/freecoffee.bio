@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { markPaymentComplete, recordPaymentEvent, updatePaymentEvent, getPaymentSettings } from '../../../server/payments';
+import { findPaymentReference, markPaymentComplete, recordPaymentEvent, updatePaymentEvent, getPaymentSettings } from '../../../server/payments';
 import { publicError, requestId } from '../../../server/http';
 
 async function verifyStripeSignature(payload: string, header: string, secret: string) {
@@ -12,6 +12,11 @@ async function verifyStripeSignature(payload: string, header: string, secret: st
   const expected = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
   return signatures.includes(expected);
 }
+
+export const GET: APIRoute = async () => {
+  const settings = await getPaymentSettings();
+  return Response.json({ endpoint: 'stripe-webhook', method: 'POST', configured: Boolean(settings?.stripeWebhookSecret), message: 'Stripe sends signed POST requests to this endpoint.' });
+};
 
 export const POST: APIRoute = async ({ request }) => {
   const id = requestId(request);
@@ -29,7 +34,7 @@ export const POST: APIRoute = async ({ request }) => {
   if (!inserted) return Response.json({ received: true }, { headers: { 'x-request-id': id } });
   try {
     if ((event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') && event.data?.object?.payment_status === 'paid') {
-      const referenceId = event.data.object.client_reference_id || event.data.object.metadata?.reference_id;
+      const referenceId = event.data.object.client_reference_id || event.data.object.metadata?.reference_id || (event.data.object.id ? await findPaymentReference('stripe', event.data.object.id) : null);
       if (referenceId && event.data.object.id) {
         const amount = event.data.object.amount_total;
                 const currency = event.data.object.currency;

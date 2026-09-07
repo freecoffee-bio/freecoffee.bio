@@ -5,25 +5,21 @@ import { env } from 'cloudflare:workers';
 import { createDb } from '../db';
 import { creatorPageSettings, products, siteSettings } from '../db/schema';
 import { convertCurrency, saveUsdRate } from './exchange-rate';
+import { mergePaymentProviderConfig, parsePaymentProviders } from './payment-config';
+import { normalizeSiteUrl, composeSiteUrl } from './site-url';
+export { normalizeSiteUrl };
+
 const defaultSettings = {
   id: 1,
   siteUrl: '',
   siteName: 'FreeCoffee.bio',
   currency: 'USD' as Currency,
   taxRate: 0,
-  stripeSecretKey: '',
-  stripeWebhookSecret: '',
-  paypalClientId: '',
-  paypalClientSecret: '',
-  paypalWebhookId: '',
+  paymentProviders: '{}',
   updatedAt: new Date(),
 };
 
-export function normalizeSiteUrl(value: string): string {
-  const url = new URL(value.trim());
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error('Site URL must use HTTP or HTTPS.');
-  return url.origin;
-}
+
 
 export async function getSiteSettings() {
   const db = createDb(env.DB);
@@ -99,35 +95,24 @@ export async function updateSiteUrl(value: string) {
   return siteUrl;
 }
 
-export async function updatePaymentSettings(input: { stripeSecretKey?: string; stripeWebhookSecret?: string; paypalClientId?: string; paypalClientSecret?: string; paypalWebhookId?: string }) {
+export { getPaymentProviderConfig, parsePaymentProviders, validatePaymentCredentials, type PaymentProviderConfig } from './payment-config';
+
+export async function updatePaymentProviderSettings(input: { provider: string; credentials: Record<string, string>; options?: Record<string, unknown> }) {
   const db = createDb(env.DB);
   const existing = await getSiteSettings();
-  const values = {
-    id: 1,
-    siteUrl: existing.siteUrl,
-    siteName: existing.siteName,
-    currency: existing.currency,
-    taxRate: existing.taxRate,
-    stripeSecretKey: input.stripeSecretKey || existing.stripeSecretKey,
-    stripeWebhookSecret: input.stripeWebhookSecret || existing.stripeWebhookSecret,
-    paypalClientId: input.paypalClientId || existing.paypalClientId,
-    paypalClientSecret: input.paypalClientSecret || existing.paypalClientSecret,
-    paypalWebhookId: input.paypalWebhookId || existing.paypalWebhookId,
-    updatedAt: new Date(),
-  };
-  await db.insert(siteSettings).values(values).onConflictDoUpdate({ target: siteSettings.id, set: { siteUrl: values.siteUrl, siteName: values.siteName, currency: values.currency, taxRate: values.taxRate, stripeSecretKey: values.stripeSecretKey, stripeWebhookSecret: values.stripeWebhookSecret, paypalClientId: values.paypalClientId, paypalClientSecret: values.paypalClientSecret, paypalWebhookId: values.paypalWebhookId, updatedAt: values.updatedAt } });
+  const paymentProviders = mergePaymentProviderConfig(existing.paymentProviders, input.provider, input.credentials, input.options);
+  await db.update(siteSettings).set({ paymentProviders, updatedAt: new Date() }).where(eq(siteSettings.id, 1));
 }
 
 export async function disconnectPaymentProvider(provider: 'stripe' | 'paypal') {
   const db = createDb(env.DB);
-  const values = provider === 'stripe'
-    ? { stripeSecretKey: '', stripeWebhookSecret: '', updatedAt: new Date() }
-    : { paypalClientId: '', paypalClientSecret: '', paypalWebhookId: '', updatedAt: new Date() };
-  await db.update(siteSettings).set(values).where(eq(siteSettings.id, 1));
+  const existing = await getSiteSettings();
+  const providers = parsePaymentProviders(existing.paymentProviders);
+  delete providers[provider];
+  await db.update(siteSettings).set({ paymentProviders: JSON.stringify(providers), updatedAt: new Date() }).where(eq(siteSettings.id, 1));
 }
 
 export async function getSiteCallbackUrl(path: string): Promise<string> {
   const settings = await getSiteSettings();
-  if (!settings.siteUrl) throw new Error('Site URL is not configured.');
-  return new URL(path, `${settings.siteUrl}/`).toString();
+  return composeSiteUrl(settings.siteUrl, path);
 }

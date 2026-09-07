@@ -4,9 +4,7 @@ import { publicError, requestId } from '../../../server/http';
 import { getSiteCallbackUrl } from '../../../server/site-settings';
 import { getCurrentUser } from '../../../server/session';
 
-function callbackUrl(request: Request, path: string) {
-  return new URL(path, request.url).toString();
-}
+
 import { enforceRateLimit } from '../../../server/rate-limit';
 
 
@@ -24,7 +22,7 @@ export const POST: APIRoute = async ({ request }) => {
     const user = await getCurrentUser(request);
     if (!user) return publicError('Sign in to purchase products.', 401, id);
     if (!provider || !handle || !productId) return publicError('Choose a product and payment provider.', 400, id);
-    const result = await createOrderCheckout({ handle, productId, email, buyerUserId: user.id, provider: provider as PaymentProviderName, returnUrl: `${await getSiteCallbackUrl('/shop/success').catch(() => callbackUrl(request, '/shop/success'))}?reference={REFERENCE_ID}`, cancelUrl: await getSiteCallbackUrl(`/c/${encodeURIComponent(handle)}`).catch(() => callbackUrl(request, `/c/${encodeURIComponent(handle)}`)) });
+    const result = await createOrderCheckout({ handle, productId, email, buyerUserId: user.id, provider: provider as PaymentProviderName, returnUrl: `${await getSiteCallbackUrl('/shop/success')}?reference={REFERENCE_ID}`, cancelUrl: await getSiteCallbackUrl(`/c/${encodeURIComponent(handle)}`) });
     if (request.headers.get('accept')?.includes('application/json')) return Response.json({ checkoutUrl: result.url }, { headers: { 'x-request-id': id } });
     return new Response(null, { status: 303, headers: { Location: result.url, 'x-request-id': id } });
   } catch (error) {

@@ -272,12 +272,16 @@ export const orders = sqliteTable('orders', {
   status: text('status').notNull().default('pending'),
   provider: text('provider'),
   providerPaymentId: text('provider_payment_id'),
+  expiresAt: integer('expires_at', { mode: 'timestamp' }),
+  closedAt: integer('closed_at', { mode: 'timestamp' }),
+  closeReason: text('close_reason'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   paidAt: integer('paid_at', { mode: 'timestamp' }),
 }, (table) => [
   index('orders_creator_id_idx').on(table.creatorId),
   index('orders_buyer_user_id_idx').on(table.buyerUserId),
   index('orders_status_idx').on(table.status),
+  index('orders_status_expires_at_idx').on(table.status, table.expiresAt),
 ]);
 
 export const orderItems = sqliteTable('order_items', {
@@ -345,6 +349,11 @@ export const notificationDeliveries = sqliteTable('notification_deliveries', {
   status: text('status').notNull().default('pending'),
   attempts: integer('attempts').notNull().default(0),
   lastError: text('last_error'),
+  payloadJson: text('payload_json'),
+  dedupeKey: text('dedupe_key').unique(),
+  availableAt: integer('available_at', { mode: 'timestamp' }),
+  lockedAt: integer('locked_at', { mode: 'timestamp' }),
+  sentAt: integer('sent_at', { mode: 'timestamp' }),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });

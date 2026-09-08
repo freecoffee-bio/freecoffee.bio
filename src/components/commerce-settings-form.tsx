@@ -13,6 +13,13 @@ type ExchangeRates = {
   JPY: string
 }
 
+const exchangeRateFields = [
+  { currency: 'CNY', name: 'rateCNY', id: 'rate-cny', placeholder: '7.20' },
+  { currency: 'EUR', name: 'rateEUR', id: 'rate-eur', placeholder: '0.92' },
+  { currency: 'GBP', name: 'rateGBP', id: 'rate-gbp', placeholder: '0.79' },
+  { currency: 'JPY', name: 'rateJPY', id: 'rate-jpy', placeholder: '150' },
+] as const
+
 export function CommerceSettingsForm({ currency: initialCurrency, taxRate, exchangeRates }: { currency: string; taxRate: string; exchangeRates: ExchangeRates }) {
   const [currency, setCurrency] = useState(initialCurrency)
   const [saving, setSaving] = useState(false)
@@ -70,10 +77,7 @@ export function CommerceSettingsForm({ currency: initialCurrency, taxRate, excha
         <Input id="commerce-tax-rate" name="taxRate" type="number" min="0" max="100" step="0.01" defaultValue={taxRate} />
         <FieldDescription>A single manual tax rate applies to new orders. Confirm your local tax obligations.</FieldDescription>
       </Field>
-      <Field><FieldLabel htmlFor="rate-cny">USD to CNY</FieldLabel><Input id="rate-cny" name="rateCNY" defaultValue={exchangeRates.CNY} placeholder="7.20" /></Field>
-      <Field><FieldLabel htmlFor="rate-eur">USD to EUR</FieldLabel><Input id="rate-eur" name="rateEUR" defaultValue={exchangeRates.EUR} placeholder="0.92" /></Field>
-      <Field><FieldLabel htmlFor="rate-gbp">USD to GBP</FieldLabel><Input id="rate-gbp" name="rateGBP" defaultValue={exchangeRates.GBP} placeholder="0.79" /></Field>
-      <Field><FieldLabel htmlFor="rate-jpy">USD to JPY</FieldLabel><Input id="rate-jpy" name="rateJPY" defaultValue={exchangeRates.JPY} placeholder="150" /></Field>
+      {exchangeRateFields.map((field) => <Field key={field.currency}><FieldLabel htmlFor={field.id}>USD to {field.currency}</FieldLabel><Input id={field.id} name={field.name} defaultValue={exchangeRates[field.currency]} placeholder={field.placeholder} /></Field>)}
       <Button className="w-full sm:w-auto" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Save commerce settings'}</Button>
     </FieldGroup>
   </form>

@@ -20,7 +20,7 @@ export const GET: APIRoute = async ({ request }) => {
     method: 'POST',
     url: new URL('/api/webhooks/stripe', request.url).toString(),
     configured: Boolean(settings?.stripeWebhookSecret),
-    message: 'Configure this exact URL in Stripe Dashboard → Developers → Webhooks and use the signing secret from that endpoint.',
+    message: 'Configure this exact URL in Stripe Dashboard under Developers, then Webhooks, and use that endpoint’s signing secret.',
   });
 };
 

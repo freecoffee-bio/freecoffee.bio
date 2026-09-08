@@ -7,6 +7,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field'
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { showToast } from '@/lib/toast'
 
 export type ShopProduct = { id: string; name: string; description: string | null; coverImageUrl: string | null; price: number; currency: string; status: string }
@@ -100,7 +101,7 @@ export function ShopProductsManager({ products, currency }: Props) {
       <div className="product-copy"><strong>{product.name}</strong><span>Digital download</span><small>{displayPrice(product)}</small></div>
       <span className={`product-status product-status-${product.status}`}>{product.status}</span>
       <div className="product-actions"><Button type="button" variant="outline" onClick={() => setEditing(product)} disabled={busy}><Pencil size={14} /> Edit</Button><DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="ghost" size="icon" aria-label={`More options for ${product.name}`}><Ellipsis size={17} /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onSelect={() => void changeStatus(product)}>{product.status === 'published' ? 'Unpublish' : 'Publish'}</DropdownMenuItem><DropdownMenuItem variant="destructive" onSelect={() => void remove(product)}><Trash2 size={14} /> Delete</DropdownMenuItem></DropdownMenuContent></DropdownMenu></div>
-    </article>)}</div> : <div className="payments-empty"><div className="empty-coffee"><ShoppingBag size={24} /></div><h2>No products yet</h2><p>Create a product to start selling digital downloads.</p></div>}
+    </article>)}</div> : <Empty className="min-h-52 border-0"><EmptyMedia><ShoppingBag aria-hidden="true" /></EmptyMedia><EmptyHeader><EmptyTitle>No products yet</EmptyTitle><EmptyDescription>Create a product to start selling digital downloads.</EmptyDescription></EmptyHeader></Empty>}
     <ProductEditor open={creating || !!editing} product={editing} currency={currency} busy={busy} onOpenChange={(open) => { if (!open) { setCreating(false); setEditing(null) } }} onSubmit={save} />
   </>
 }

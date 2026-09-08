@@ -48,7 +48,14 @@ export async function dispatchEmailNotification(input: { recipient: string; even
 const wait = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 const RETRY_DELAYS = [60, 300, 1800, 7200];
 
-export async function processNotificationBatch(limit = 8) {
+export type NotificationBatchResult = {
+  candidates: number;
+  claimed: number;
+  sent: number;
+  retriedOrFailed: number;
+};
+
+export async function processNotificationBatch(limit = 8): Promise<NotificationBatchResult> {
   const db = createDb(env.DB);
   const now = new Date();
 
@@ -57,14 +64,16 @@ export async function processNotificationBatch(limit = 8) {
   const templates = await db.select().from(notificationTemplates).where(eq(notificationTemplates.channel, 'email'));
   const templateMap = new Map(templates.map((template) => [template.eventKey, template]));
   const candidates = await db.select().from(notificationDeliveries).where(and(eq(notificationDeliveries.channel, 'email'), inArray(notificationDeliveries.status, ['pending', 'retry']), or(isNull(notificationDeliveries.availableAt), lte(notificationDeliveries.availableAt, now)))).orderBy(notificationDeliveries.createdAt).limit(limit);
-  if (!candidates.length) return 0;
+  if (!candidates.length) return { candidates: 0, claimed: 0, sent: 0, retriedOrFailed: 0 };
   const claimed = [];
   for (const candidate of candidates) {
     const result = await db.update(notificationDeliveries).set({ status: 'processing', lockedAt: now, updatedAt: now }).where(and(eq(notificationDeliveries.id, candidate.id), inArray(notificationDeliveries.status, ['pending', 'retry']))).returning();
     if (result[0]) claimed.push(result[0]);
   }
-  if (!claimed.length) return 0;
+  if (!claimed.length) return { candidates: candidates.length, claimed: 0, sent: 0, retriedOrFailed: 0 };
 
+  let sent = 0;
+  let retriedOrFailed = 0;
   let connection: Awaited<ReturnType<typeof connectMailer>> | undefined;
   try {
     connection = await connectMailer();
@@ -76,12 +85,14 @@ export async function processNotificationBatch(limit = 8) {
         const data = job.payloadJson ? JSON.parse(job.payloadJson) as Record<string, string> : {};
         await connection.mailer.send({ from: connection.from, to: job.recipient, reply: connection.replyTo, subject: render(template.subject, data), text: render(template.bodyText, data), html: template.bodyHtml ? render(template.bodyHtml, data) : undefined });
         await db.update(notificationDeliveries).set({ status: 'sent', attempts: job.attempts + 1, sentAt: new Date(), lockedAt: null, updatedAt: new Date() }).where(and(eq(notificationDeliveries.id, job.id), eq(notificationDeliveries.status, 'processing')));
+        sent += 1;
       } catch (error) {
         const attempts = job.attempts + 1;
         const retry = attempts <= RETRY_DELAYS.length;
         const errorDetails = error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : { message: String(error) };
         console.error('Notification delivery failed', JSON.stringify({ jobId: job.id, template: job.template, recipient: job.recipient, attempt: attempts, retry, error: errorDetails }));
         await db.update(notificationDeliveries).set({ status: retry ? 'retry' : 'failed', attempts, availableAt: retry ? new Date(Date.now() + RETRY_DELAYS[attempts - 1] * 1000) : null, lockedAt: null, lastError: error instanceof Error ? error.message : String(error), updatedAt: new Date() }).where(and(eq(notificationDeliveries.id, job.id), eq(notificationDeliveries.status, 'processing')));
+        retriedOrFailed += 1;
       }
       if (index < claimed.length - 1) await wait(6_000);
     }
@@ -95,7 +106,7 @@ export async function processNotificationBatch(limit = 8) {
     await connection?.mailer.close();
   }
 
-  return claimed.length;
+  return { candidates: candidates.length, claimed: claimed.length, sent, retriedOrFailed };
 }
 
 export async function listNotificationDeliveries() {

@@ -19,6 +19,13 @@ export async function runScheduledTasks() {
     await db.update(paymentRecords).set({ status: 'expired', updatedAt: now }).where(and(eq(paymentRecords.status, 'pending'), inArray(paymentRecords.referenceId, expiredReferences)));
   }
 
-  const processed = await processNotificationBatch(8);
-  console.log('Scheduled tasks completed', JSON.stringify({ expiredOrders: expiredOrders.length, expiredSupports: expiredSupports.length, notificationJobs: processed }));
+  const notifications = await processNotificationBatch(8);
+  console.log('Scheduled tasks completed', JSON.stringify({
+    expiredOrders: expiredOrders.length,
+    expiredSupports: expiredSupports.length,
+    notificationCandidates: notifications.candidates,
+    notificationClaimed: notifications.claimed,
+    notificationSent: notifications.sent,
+    notificationRetriedOrFailed: notifications.retriedOrFailed,
+  }));
 }

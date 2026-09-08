@@ -134,12 +134,12 @@ function isActive(label: string) {
 }
 ---
 <html lang="en" class="admin-page">
-  <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width" /><link rel="preload" href={geistLatinFont} as="font" type="font/woff2" crossorigin /><style is:inline>html { font-family: 'Geist Variable', Arial, sans-serif; } .admin-body { font-size: 16px; }</style><title>{pageTitle} — FreeCoffee.bio</title><script is:inline>try { if (localStorage.getItem('freecoffee-theme') === 'dark') document.documentElement.classList.add('dark'); } catch {}</script></head>
+  <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width" /><link rel="icon" type="image/png" href="/icon.png" /><link rel="preload" href={geistLatinFont} as="font" type="font/woff2" crossorigin /><style is:inline>html { font-family: 'Geist Variable', Arial, sans-serif; } .admin-body { font-size: 16px; }</style><title>{pageTitle} — FreeCoffee.bio</title><script is:inline>try { if (localStorage.getItem('freecoffee-theme') === 'dark') document.documentElement.classList.add('dark'); } catch {}</script></head>
   <body class="admin-body">
     <ToastHost client:load />
     <div class="admin-shell">
       <aside class="admin-sidebar" id="admin-sidebar">
-        <a class="admin-brand" href={`/${adminPath}`} aria-label="FreeCoffee home"><span class="brand-mark"><AdminIcon name="coffee" size={20} /></span><span>FreeCoffee</span><b>.bio</b></a>
+        <a class="admin-brand" href={`/${adminPath}`} aria-label="FreeCoffee home"><img src="/logo.png" alt="FreeCoffee.bio" /></a>
         <nav class="admin-nav" aria-label="Main navigation">
           {navItems.map((item) => <a class:list={['admin-nav-item', { 'is-active': isActive(item.label) }]} href={item.href}><span class="admin-nav-icon"><AdminIcon name={item.icon} /></span><span>{item.label}</span></a>)}
           {supportItems.length > 0 && <p class="admin-nav-label">My support</p>}
@@ -174,8 +174,8 @@ function isActive(label: string) {
             </>
           ) : isEmail ? (
             <>
-              <div class="admin-heading"><p class="admin-kicker">Delivery</p><h1>Email settings</h1><p>Configure SMTP delivery for receipts and creator notifications.</p></div>
-              <EmailManager client:load initialSettings={workspace.email} />
+              <div class="admin-heading"><p class="admin-kicker">Delivery</p><h1>Email settings</h1><p>Choose and configure the service used for receipts and creator notifications.</p></div>
+              <EmailManager client:load initialSettings={workspace.email} initialDelivery={workspace.emailDelivery} />
             </>
           ) : isOperations ? (
             <>

@@ -154,6 +154,13 @@ export const smtpSettings = sqliteTable('smtp_settings', {
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
 
+export const emailDeliverySettings = sqliteTable('email_delivery_settings', {
+  id: integer('id').primaryKey(),
+  activeProvider: text('active_provider'),
+  apiProviders: text('api_providers').notNull().default('{}'),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
 export const supportTransactions = sqliteTable('support_transactions', {
   id: text('id').primaryKey(),
   creatorId: integer('creator_id').notNull().references(() => creatorProfiles.id, { onDelete: 'cascade' }),

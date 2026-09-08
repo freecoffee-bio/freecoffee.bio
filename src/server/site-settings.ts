@@ -30,10 +30,15 @@ export async function getSiteSettings() {
 
 export async function ensureSiteSettings(siteUrl?: string) {
   const db = createDb(env.DB);
-  const existing = await getSiteSettings();
+  const [storedSettings] = await db.select().from(siteSettings).where(eq(siteSettings.id, 1)).limit(1);
+  const existing = storedSettings ?? defaultSettings;
   const normalizedSiteUrl = siteUrl ? normalizeSiteUrl(siteUrl) : existing.siteUrl;
-  if (existing.siteUrl !== normalizedSiteUrl) {
-    await db.update(siteSettings).set({ siteUrl: normalizedSiteUrl, updatedAt: new Date() }).where(eq(siteSettings.id, 1));
+  if (storedSettings) {
+    if (storedSettings.siteUrl !== normalizedSiteUrl) {
+      await db.update(siteSettings).set({ siteUrl: normalizedSiteUrl, updatedAt: new Date() }).where(eq(siteSettings.id, 1));
+    }
+  } else {
+    await db.insert(siteSettings).values({ ...defaultSettings, siteUrl: normalizedSiteUrl });
   }
   return getSiteSettings();
 }

@@ -1,26 +1,12 @@
 {
-  "version": "6",
+  "version": "7",
   "dialect": "sqlite",
   "entries": [
     {
       "idx": 0,
       "version": "6",
-      "when": 1788429836406,
+      "when": 1788850135338,
       "tag": "0000_init",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1788429836406,
-      "tag": "0001_yielding_venus",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1788763760463,
-      "tag": "0002_remove_download_grants",
       "breakpoints": true
     }
   ]

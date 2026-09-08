@@ -94,22 +94,24 @@ CREATE TABLE `creator_profiles` (
 --> statement-breakpoint
 CREATE UNIQUE INDEX `creator_profiles_user_id_unique` ON `creator_profiles` (`user_id`);--> statement-breakpoint
 CREATE UNIQUE INDEX `creator_profiles_handle_unique` ON `creator_profiles` (`handle`);--> statement-breakpoint
-CREATE TABLE `download_grants` (
-	`id` text PRIMARY KEY NOT NULL,
-	`order_id` text NOT NULL,
-	`product_id` text NOT NULL,
-	`token_hash` text NOT NULL,
-	`expires_at` integer NOT NULL,
-	`download_count` integer DEFAULT 0 NOT NULL,
-	`max_downloads` integer DEFAULT 3 NOT NULL,
-	`created_at` integer NOT NULL,
-	FOREIGN KEY (`product_id`) REFERENCES `products`(`id`) ON UPDATE no action ON DELETE cascade,
-	FOREIGN KEY (`order_id`,`product_id`) REFERENCES `order_items`(`order_id`,`product_id`) ON UPDATE no action ON DELETE cascade,
-	CONSTRAINT "download_grants_count_valid" CHECK("download_grants"."download_count" >= 0 AND "download_grants"."max_downloads" > 0)
+CREATE TABLE `email_delivery_settings` (
+	`id` integer PRIMARY KEY NOT NULL,
+	`active_provider` text,
+	`api_providers` text DEFAULT '{}' NOT NULL,
+	`updated_at` integer NOT NULL
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `download_grants_token_hash_unique` ON `download_grants` (`token_hash`);--> statement-breakpoint
-CREATE UNIQUE INDEX `download_grants_order_product_unique` ON `download_grants` (`order_id`,`product_id`);--> statement-breakpoint
+CREATE TABLE `exchange_rates` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`base_currency` text DEFAULT 'USD' NOT NULL,
+	`quote_currency` text NOT NULL,
+	`rate` text NOT NULL,
+	`source` text DEFAULT 'manual' NOT NULL,
+	`effective_at` integer NOT NULL,
+	`updated_at` integer NOT NULL
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `exchange_rates_base_quote_unique` ON `exchange_rates` (`base_currency`,`quote_currency`);--> statement-breakpoint
 CREATE TABLE `gallery_items` (
 	`id` text PRIMARY KEY NOT NULL,
 	`creator_id` integer NOT NULL,
@@ -125,17 +127,6 @@ CREATE TABLE `gallery_items` (
 	FOREIGN KEY (`creator_id`) REFERENCES `creator_profiles`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE TABLE `exchange_rates` (
-	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
-	`base_currency` text DEFAULT 'USD' NOT NULL,
-	`quote_currency` text NOT NULL,
-	`rate` text NOT NULL,
-	`source` text DEFAULT 'manual' NOT NULL,
-	`effective_at` integer NOT NULL,
-	`updated_at` integer NOT NULL
-);
---> statement-breakpoint
-CREATE UNIQUE INDEX `exchange_rates_base_quote_unique` ON `exchange_rates` (`base_currency`,`quote_currency`);--> statement-breakpoint
 CREATE TABLE `media_files` (
 	`id` text PRIMARY KEY NOT NULL,
 	`original_name` text NOT NULL,
@@ -159,10 +150,16 @@ CREATE TABLE `notification_deliveries` (
 	`status` text DEFAULT 'pending' NOT NULL,
 	`attempts` integer DEFAULT 0 NOT NULL,
 	`last_error` text,
+	`payload_json` text,
+	`dedupe_key` text,
+	`available_at` integer,
+	`locked_at` integer,
+	`sent_at` integer,
 	`created_at` integer NOT NULL,
 	`updated_at` integer NOT NULL
 );
 --> statement-breakpoint
+CREATE UNIQUE INDEX `notification_deliveries_dedupe_key_unique` ON `notification_deliveries` (`dedupe_key`);--> statement-breakpoint
 CREATE TABLE `notification_templates` (
 	`id` text PRIMARY KEY NOT NULL,
 	`event_key` text NOT NULL,
@@ -210,6 +207,9 @@ CREATE TABLE `orders` (
 	`status` text DEFAULT 'pending' NOT NULL,
 	`provider` text,
 	`provider_payment_id` text,
+	`expires_at` integer,
+	`closed_at` integer,
+	`close_reason` text,
 	`created_at` integer NOT NULL,
 	`paid_at` integer,
 	FOREIGN KEY (`creator_id`) REFERENCES `creator_profiles`(`id`) ON UPDATE no action ON DELETE cascade,
@@ -219,6 +219,7 @@ CREATE TABLE `orders` (
 CREATE INDEX `orders_creator_id_idx` ON `orders` (`creator_id`);--> statement-breakpoint
 CREATE INDEX `orders_buyer_user_id_idx` ON `orders` (`buyer_user_id`);--> statement-breakpoint
 CREATE INDEX `orders_status_idx` ON `orders` (`status`);--> statement-breakpoint
+CREATE INDEX `orders_status_expires_at_idx` ON `orders` (`status`,`expires_at`);--> statement-breakpoint
 CREATE TABLE `payment_events` (
 	`id` text PRIMARY KEY NOT NULL,
 	`provider` text NOT NULL,
@@ -330,11 +331,7 @@ CREATE TABLE `site_settings` (
 	`site_name` text DEFAULT 'FreeCoffee.bio' NOT NULL,
 	`currency` text DEFAULT 'USD' NOT NULL,
 	`tax_rate` integer DEFAULT 0 NOT NULL,
-	`stripe_secret_key` text DEFAULT '' NOT NULL,
-	`stripe_webhook_secret` text DEFAULT '' NOT NULL,
-	`paypal_client_id` text DEFAULT '' NOT NULL,
-	`paypal_client_secret` text DEFAULT '' NOT NULL,
-	`paypal_webhook_id` text DEFAULT '' NOT NULL,
+	`payment_providers` text DEFAULT '{}' NOT NULL,
 	`updated_at` integer NOT NULL
 );
 --> statement-breakpoint

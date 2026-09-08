@@ -12,6 +12,7 @@
     {
       "binding": "DB",
       "database_name": "freecoffee-db",
+      // "database_id": "259543ed-7141-4593-9dbe-6fa69add0c53",
       "database_id": "local-development",
       "migrations_dir": "./migrations",
     },
@@ -19,6 +20,7 @@
   "kv_namespaces": [
     {
       "binding": "SESSION",
+      // "id": "30988a5ded504374a7f61e26613f16e0",
       "id": "local-development",
     },
   ],

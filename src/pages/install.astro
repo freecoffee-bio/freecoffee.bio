@@ -3,15 +3,18 @@ import '../styles/global.css';
 import { hasRoot } from '../server/admin';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
+import { ToastHost } from '../components/toast-host';
 
 if (await hasRoot()) return new Response('Not Found', { status: 404 });
+const siteUrl = Astro.url.origin;
 ---
 <html lang="en">
   <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width" /><title>Install FreeCoffee.bio</title></head>
   <body class="min-h-screen bg-muted/30">
+    <ToastHost client:load />
     <main class="mx-auto flex min-h-screen max-w-md items-center px-4 py-12">
       <section class="w-full rounded-xl border bg-card p-6 shadow-sm">
-        <div class="mb-6 flex items-center gap-2 font-semibold"><span class="grid size-8 place-items-center rounded-lg bg-primary text-primary-foreground">☕</span> FreeCoffee<span class="text-primary">.bio</span></div>
+        <a href="/" class="mb-6 inline-flex" aria-label="FreeCoffee home"><img src="/logo.png" alt="FreeCoffee.bio" class="h-10 w-auto" /></a>
         <p class="font-mono text-xs text-primary">FIRST DEPLOYMENT</p>
         <h1 class="mt-2 text-3xl font-semibold tracking-tight">Create your admin account</h1>
         <p class="mt-3 text-sm text-muted-foreground">This one-time setup creates the root administrator for this deployment. The install page closes after completion.</p>
@@ -19,9 +22,20 @@ if (await hasRoot()) return new Response('Not Found', { status: 404 });
           <label class="block text-sm font-medium">Name<Input required name="name" maxLength={100} autoComplete="name" className="mt-2 h-11 w-full" /></label>
           <label class="block text-sm font-medium">Email<Input required name="email" type="email" autoComplete="email" className="mt-2 h-11 w-full" /></label>
           <label class="block text-sm font-medium">Password<Input required name="password" type="password" minLength={8} maxLength={128} autoComplete="new-password" className="mt-2 h-11 w-full" /><span class="mt-1 block text-xs text-muted-foreground">At least 8 characters.</span></label>
+          <label class="block text-sm font-medium">Site URL<Input required name="siteUrl" type="url" maxLength={500} defaultValue={siteUrl} placeholder="https://your-domain.com" className="mt-2 h-11 w-full" /><span class="mt-1 block text-xs text-muted-foreground">Use the site origin only. Do not include an admin or callback path.</span></label>
           <Button className="h-11 w-full" type="submit">Finish installation</Button>
         </form>
       </section>
     </main>
+    <script is:inline>
+      const form = document.querySelector('form[action="/api/install"]');
+      const showToast = (message) => window.dispatchEvent(new CustomEvent('freecoffee:toast', { detail: { message, type: 'error' } }));
+      form?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const response = await fetch('/api/install', { method: 'POST', body: new FormData(form) });
+        if (response.redirected) window.location.href = response.url;
+        else if (!response.ok) showToast((await response.json().catch(() => ({}))).error || 'Unable to complete installation.');
+      });
+    </script>
   </body>
 </html>

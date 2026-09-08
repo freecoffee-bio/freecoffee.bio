@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "7521eff7-88d6-42f0-9882-744e6a56564a",
-  "prevId": "ed4c46bc-1367-4958-a264-8cab48a011f9",
+  "id": "afa31016-b9e2-44f1-a791-f5138e4c2af3",
+  "prevId": "d31a5bcd-bdff-4f86-82d6-f0d8b0280f9a",
   "tables": {
     "account": {
       "name": "account",
@@ -665,123 +665,44 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "download_grants": {
-      "name": "download_grants",
+    "email_delivery_settings": {
+      "name": "email_delivery_settings",
       "columns": {
         "id": {
           "name": "id",
-          "type": "text",
+          "type": "integer",
           "primaryKey": true,
           "notNull": true,
           "autoincrement": false
         },
-        "order_id": {
-          "name": "order_id",
+        "active_provider": {
+          "name": "active_provider",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
-        "product_id": {
-          "name": "product_id",
+        "api_providers": {
+          "name": "api_providers",
           "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "token_hash": {
-          "name": "token_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "expires_at": {
-          "name": "expires_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "download_count": {
-          "name": "download_count",
-          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": 0
+          "default": "'{}'"
         },
-        "max_downloads": {
-          "name": "max_downloads",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 3
-        },
-        "created_at": {
-          "name": "created_at",
+        "updated_at": {
+          "name": "updated_at",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         }
       },
-      "indexes": {
-        "download_grants_token_hash_unique": {
-          "name": "download_grants_token_hash_unique",
-          "columns": [
-            "token_hash"
-          ],
-          "isUnique": true
-        },
-        "download_grants_order_product_unique": {
-          "name": "download_grants_order_product_unique",
-          "columns": [
-            "order_id",
-            "product_id"
-          ],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {
-        "download_grants_product_id_products_id_fk": {
-          "name": "download_grants_product_id_products_id_fk",
-          "tableFrom": "download_grants",
-          "tableTo": "products",
-          "columnsFrom": [
-            "product_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "download_grants_order_product_fk": {
-          "name": "download_grants_order_product_fk",
-          "tableFrom": "download_grants",
-          "tableTo": "order_items",
-          "columnsFrom": [
-            "order_id",
-            "product_id"
-          ],
-          "columnsTo": [
-            "order_id",
-            "product_id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
+      "indexes": {},
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {
-        "download_grants_count_valid": {
-          "name": "download_grants_count_valid",
-          "value": "\"download_grants\".\"download_count\" >= 0 AND \"download_grants\".\"max_downloads\" > 0"
-        }
-      }
+      "checkConstraints": {}
     },
     "exchange_rates": {
       "name": "exchange_rates",
@@ -1114,6 +1035,41 @@
           "notNull": false,
           "autoincrement": false
         },
+        "payload_json": {
+          "name": "payload_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "dedupe_key": {
+          "name": "dedupe_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "available_at": {
+          "name": "available_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "locked_at": {
+          "name": "locked_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "sent_at": {
+          "name": "sent_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "integer",
@@ -1129,7 +1085,15 @@
           "autoincrement": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "notification_deliveries_dedupe_key_unique": {
+          "name": "notification_deliveries_dedupe_key_unique",
+          "columns": [
+            "dedupe_key"
+          ],
+          "isUnique": true
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
@@ -1460,6 +1424,27 @@
           "notNull": false,
           "autoincrement": false
         },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "closed_at": {
+          "name": "closed_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "close_reason": {
+          "name": "close_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "integer",
@@ -1494,6 +1479,14 @@
           "name": "orders_status_idx",
           "columns": [
             "status"
+          ],
+          "isUnique": false
+        },
+        "orders_status_expires_at_idx": {
+          "name": "orders_status_expires_at_idx",
+          "columns": [
+            "status",
+            "expires_at"
           ],
           "isUnique": false
         }
@@ -1827,6 +1820,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "cover_image_url": {
+          "name": "cover_image_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "body": {
           "name": "body",
           "type": "text",
@@ -1991,6 +1991,13 @@
         },
         "description": {
           "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "cover_image_url": {
+          "name": "cover_image_url",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -2269,45 +2276,13 @@
           "autoincrement": false,
           "default": 0
         },
-        "stripe_secret_key": {
-          "name": "stripe_secret_key",
+        "payment_providers": {
+          "name": "payment_providers",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "''"
-        },
-        "stripe_webhook_secret": {
-          "name": "stripe_webhook_secret",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "''"
-        },
-        "paypal_client_id": {
-          "name": "paypal_client_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "''"
-        },
-        "paypal_client_secret": {
-          "name": "paypal_client_secret",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "''"
-        },
-        "paypal_webhook_id": {
-          "name": "paypal_webhook_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "''"
+          "default": "'{}'"
         },
         "updated_at": {
           "name": "updated_at",

@@ -87,6 +87,7 @@
     --popover-foreground: oklch(0.145 0 0);
     --primary: #5cb85c;
     --primary-foreground: #ffffff;
+    --brand-soft: #e4f4e4;
     --secondary: oklch(0.97 0 0);
     --secondary-foreground: oklch(0.205 0 0);
     --muted: oklch(0.97 0 0);
@@ -122,6 +123,7 @@
     --popover-foreground: oklch(0.985 0 0);
     --primary: #5cb85c;
     --primary-foreground: #ffffff;
+    --brand-soft: #203622;
     --secondary: oklch(0.269 0 0);
     --secondary-foreground: oklch(0.985 0 0);
     --muted: oklch(0.269 0 0);
@@ -194,9 +196,8 @@ html.admin-page body[data-scroll-locked] {
 .product-row, .product-actions { min-width: 0; }
 .product-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
 .admin-sidebar { position: sticky; top: 0; z-index: 30; display: flex; height: 100vh; flex-direction: column; padding: 25px 20px 18px; background: color-mix(in oklch, var(--admin-paper) 88%, var(--admin-panel)); border-right: 1px solid var(--admin-line); overflow-y: auto; }
-.admin-brand { display: inline-flex; align-items: center; gap: 7px; margin: 0 9px 38px; font-weight: 760; letter-spacing: -.04em; color: var(--admin-ink); text-decoration: none; }
-.admin-brand b { color: var(--admin-accent); font-weight: 750; }
-.brand-mark { display: grid; width: 32px; height: 28px; place-items: center; border: 2px solid var(--admin-ink); border-radius: 11px 11px 13px 13px; color: var(--admin-accent); font-size: 15px; line-height: 1; }
+.admin-brand { display: inline-flex; align-items: center; margin: 0 9px 38px; text-decoration: none; }
+.admin-brand img { display: block; width: auto; height: 42px; max-width: 100%; object-fit: contain; }
 .admin-nav { position: relative; z-index: 1; display: grid; gap: 2px; }
 .admin-nav-item { position: relative; z-index: 1; display: flex; align-items: center; gap: 10px; min-height: 39px; padding: 7px 10px; border-radius: 11px; color: var(--admin-ink); font-family: 'Geist Variable', 'Geist Admin Fallback', sans-serif; font-size: 15px; font-weight: 620; line-height: 1.25; text-decoration: none; pointer-events: auto; transition: background-color 160ms var(--ease-out, ease-out), color 160ms var(--ease-out, ease-out); }
 .admin-nav-item > span:last-child { min-width: 0; }

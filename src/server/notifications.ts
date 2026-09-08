@@ -2,7 +2,7 @@ import { and, desc, eq, inArray, isNull, lte, or } from 'drizzle-orm';
 import { env } from 'cloudflare:workers';
 import { createDb } from '../db';
 import { notificationDeliveries, notificationTemplates } from '../db/schema';
-import { connectMailer } from './mailer';
+import { sendEmail } from './email-delivery';
 
 export type NotificationTemplate = typeof notificationTemplates.$inferSelect;
 
@@ -74,16 +74,14 @@ export async function processNotificationBatch(limit = 8): Promise<NotificationB
 
   let sent = 0;
   let retriedOrFailed = 0;
-  let connection: Awaited<ReturnType<typeof connectMailer>> | undefined;
   try {
-    connection = await connectMailer();
     for (let index = 0; index < claimed.length; index++) {
       const job = claimed[index];
       const template = templateMap.get(job.template);
       try {
         if (!template || !template.enabled) throw new Error(!template ? 'Notification template not found.' : 'Notification template is disabled.');
         const data = job.payloadJson ? JSON.parse(job.payloadJson) as Record<string, string> : {};
-        await connection.mailer.send({ from: connection.from, to: job.recipient, reply: connection.replyTo, subject: render(template.subject, data), text: render(template.bodyText, data), html: template.bodyHtml ? render(template.bodyHtml, data) : undefined });
+        await sendEmail({ to: job.recipient, subject: render(template.subject, data), text: render(template.bodyText, data), html: template.bodyHtml ? render(template.bodyHtml, data) : undefined, referenceId: job.referenceId ?? undefined });
         await db.update(notificationDeliveries).set({ status: 'sent', attempts: job.attempts + 1, sentAt: new Date(), lockedAt: null, updatedAt: new Date() }).where(and(eq(notificationDeliveries.id, job.id), eq(notificationDeliveries.status, 'processing')));
         sent += 1;
       } catch (error) {
@@ -102,8 +100,6 @@ export async function processNotificationBatch(limit = 8): Promise<NotificationB
     await db.update(notificationDeliveries).set({ status: 'retry', attempts: 1, availableAt: retryAt, lockedAt: null, lastError: errorMessage, updatedAt: new Date() }).where(and(eq(notificationDeliveries.status, 'processing'), inArray(notificationDeliveries.id, claimed.map((job) => job.id))));
     console.error('Notification batch failed', JSON.stringify({ count: claimed.length, error: errorMessage }));
     throw error;
-  } finally {
-    await connection?.mailer.close();
   }
 
   return { candidates: candidates.length, claimed: claimed.length, sent, retriedOrFailed };

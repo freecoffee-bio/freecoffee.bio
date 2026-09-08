@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-import { Coffee, ExternalLink, GitBranch, Globe, Moon, Share2, Sun } from 'lucide-react'
+import { ExternalLink, GitBranch, Globe, Moon, Share2, Sun } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { AboutSupportPanel, AboutTab, GalleryTab, PostsTab, ShopTab } from '@/components/creator-tabs'
@@ -57,10 +57,7 @@ export function CreatorPage({ currentUser, creator = { name: 'Creator', handle: 
     <main className={`w-screen min-h-screen bg-muted/30 ${hydrated ? '' : 'invisible'}`} aria-hidden={!hydrated}>
       <header className="border-b bg-background">
         <div className="mx-auto flex min-h-16 max-w-5xl items-center justify-between px-4">
-          <a href="/" className="flex items-center gap-2 font-semibold tracking-tight">
-            <span className="grid size-8 place-items-center rounded-lg bg-primary text-primary-foreground"><Coffee className="size-4" /></span>
-            FreeCoffee<span className="text-primary">.bio</span>
-          </a>
+          <a href="/" className="inline-flex" aria-label="FreeCoffee home"><img src="/logo.png" alt="FreeCoffee.bio" className="h-10 w-auto" /></a>
           <nav className="flex items-center gap-3 text-sm text-muted-foreground">
             {currentUser ? <><a className="hover:text-foreground" href="/orders">My orders</a><button className="hover:text-foreground" type="button" onClick={(event) => { const button = event.currentTarget; button.disabled = true; button.textContent = 'Signing out…'; window.location.href = '/api/auth/logout' }}>Sign out</button></> : <a className="hover:text-foreground" href="/login">Sign in</a>}
             <Button asChild size="sm"><a href="https://freecoffee.bio/" target="_blank" rel="noreferrer">Create your page <ExternalLink className="size-4" data-icon="inline-end" /></a></Button>
@@ -69,7 +66,7 @@ export function CreatorPage({ currentUser, creator = { name: 'Creator', handle: 
       </header>
 
       <section className="border-b bg-background">
-        <div className="h-40 bg-[linear-gradient(135deg,var(--color-teal-100),var(--color-lime-100))] sm:h-52" />
+        <div className="h-40 bg-(--brand-soft) sm:h-52" />
         <div className="mx-auto grid max-w-5xl gap-5 px-4 pb-7 pt-5 sm:grid-cols-[112px_1fr_auto] sm:items-end sm:gap-6 sm:pt-6">
           <div className="-mt-14 grid size-24 place-items-center overflow-hidden rounded-full border-8 border-background bg-primary text-4xl font-semibold text-primary-foreground shadow sm:size-28">{creator.image ? <img src={creator.image} alt="" className="size-full object-cover" /> : creator.name.charAt(0).toUpperCase()}</div>
           <div className="min-w-0">

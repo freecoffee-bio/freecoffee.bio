@@ -20,6 +20,6 @@ export const POST: APIRoute = async ({ request }) => {
     return Response.json({ ok: true });
   } catch (error) {
     console.error('SMTP settings update failed', error);
-    return Response.json({ error: 'Unable to save email settings.' }, { status: 400 });
+    return Response.json({ error: error instanceof Error ? error.message : 'Unable to save email settings.' }, { status: 400 });
   }
 };

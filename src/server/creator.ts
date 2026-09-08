@@ -3,6 +3,7 @@ import { env } from 'cloudflare:workers';
 import { createDb } from '../db';
 import { getPaymentSettings } from './payments';
 import { creatorPageSettings, creatorPaymentAccounts, creatorProfiles, creatorCryptoWallets, galleryItems, posts, products as productsTable, smtpSettings, siteSettings, supportTransactions } from '../db/schema';
+import { activateEmailProvider, getEmailDeliverySettings } from './email-config';
 
 function slugify(value: string) {
   const slug = value.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
@@ -79,13 +80,14 @@ export async function getOrCreateCreator(user: { id: string; name: string }) {
 export async function getCreatorWorkspace(user: { id: string; name: string }) {
   const db = createDb(env.DB);
   const creator = await getOrCreateCreator(user);
-  const [page, paymentAccounts, wallets, email] = await Promise.all([
+  const [page, paymentAccounts, wallets, email, emailDelivery] = await Promise.all([
     db.select().from(creatorPageSettings).where(eq(creatorPageSettings.creatorId, creator.id)).limit(1),
     db.select({ provider: creatorPaymentAccounts.provider, status: creatorPaymentAccounts.status, externalAccountId: creatorPaymentAccounts.externalAccountId }).from(creatorPaymentAccounts).where(eq(creatorPaymentAccounts.creatorId, creator.id)),
     db.select().from(creatorCryptoWallets).where(eq(creatorCryptoWallets.creatorId, creator.id)),
     db.select({ id: smtpSettings.id, host: smtpSettings.host, port: smtpSettings.port, username: smtpSettings.username, secure: smtpSettings.secure, fromAddress: smtpSettings.fromAddress, replyTo: smtpSettings.replyTo, enabled: smtpSettings.enabled }).from(smtpSettings).where(eq(smtpSettings.id, 1)).limit(1),
+    getEmailDeliverySettings(),
   ]);
-  return { creator, page: page[0] ?? null, paymentAccounts, wallets, email: email[0] ?? null };
+  return { creator, page: page[0] ?? null, paymentAccounts, wallets, email: email[0] ?? null, emailDelivery };
 }
 
 export async function updateCreatorProfile(user: { id: string; name: string }, input: { handle: string; displayName: string; bio?: string; website?: string; image?: string; socialLinks?: string }) {
@@ -118,5 +120,7 @@ export async function updateSmtpSettings(input: { host: string; port: number; us
   const db = createDb(env.DB);
   const existing = await db.select({ password: smtpSettings.password }).from(smtpSettings).where(eq(smtpSettings.id, 1)).limit(1);
   const password = input.password || existing[0]?.password || '';
+  if (input.enabled && !password) throw new Error('Enter an SMTP password before activating SMTP.');
   await db.insert(smtpSettings).values({ id: 1, ...input, password, updatedAt: new Date() }).onConflictDoUpdate({ target: smtpSettings.id, set: { ...input, password, updatedAt: new Date() } });
+  if (input.enabled) await activateEmailProvider('smtp');
 }

@@ -18,7 +18,7 @@ export const POST: APIRoute = async ({ request }) => {
     await sendTestEmail(to);
     return Response.json({ sent: true, requestId: id }, { headers: { 'x-request-id': id } });
   } catch (error) {
-    console.error('SMTP test failed', error);
-    return Response.json({ error: error instanceof Error ? error.message : 'Unable to send test email.', requestId: id }, { status: 400, headers: { 'x-request-id': id } });
+    console.error('Email delivery test failed', error);
+    return Response.json({ error: 'Unable to send test email. Check the delivery log for details.', requestId: id }, { status: 400, headers: { 'x-request-id': id } });
   }
 };

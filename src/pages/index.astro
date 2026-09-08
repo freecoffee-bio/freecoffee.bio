@@ -42,7 +42,7 @@ const creator = workspace ? {
     <meta name="viewport" content="width=device-width" />
     <link rel="preload" href={geistLatinFont} as="font" type="font/woff2" crossorigin />
     <meta name="description" content={creator?.bio || (creator ? `Support ${creator.name} on FreeCoffee.bio.` : 'Support independent creators directly with FreeCoffee.bio.')} />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" href="/icon.png" />
     <title>{creator ? `${creator.name} — FreeCoffee.bio` : 'FreeCoffee.bio'}</title>
   </head>
   <body><script is:inline>try { if (localStorage.getItem('freecoffee-theme') === 'dark') document.documentElement.classList.add('dark'); } catch {}</script>

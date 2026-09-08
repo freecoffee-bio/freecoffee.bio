@@ -8,7 +8,7 @@ import { env } from 'cloudflare:workers';
 export const POST: APIRoute = async ({ request, redirect }) => {
   if (await hasRoot()) return new Response('Not Found', { status: 404 });
 
-  let input: { name?: unknown; email?: unknown; password?: unknown } = {};
+  let input: { name?: unknown; email?: unknown; password?: unknown; siteUrl?: unknown } = {};
   const contentType = request.headers.get('content-type')?.toLowerCase() ?? '';
 
   try {
@@ -20,6 +20,7 @@ export const POST: APIRoute = async ({ request, redirect }) => {
         name: form.get('name'),
         email: form.get('email'),
         password: form.get('password'),
+        siteUrl: form.get('siteUrl'),
       };
     }
   } catch {
@@ -32,14 +33,24 @@ export const POST: APIRoute = async ({ request, redirect }) => {
   const name = typeof input.name === 'string' ? input.name.trim() : '';
   const email = typeof input.email === 'string' ? input.email.trim().toLowerCase() : '';
   const password = typeof input.password === 'string' ? input.password : '';
+  const siteUrl = typeof input.siteUrl === 'string' ? input.siteUrl.trim() : '';
 
   if (!name || name.length > 100 || !/^\S+@\S+\.\S+$/.test(email) || password.length < 8 || password.length > 128) {
     return new Response(JSON.stringify({ error: 'Enter a valid name, email, and password of 8–128 characters.' }), { status: 400, headers: { 'content-type': 'application/json' } });
   }
+  if (!/^https?:\/\/[^\s]+$/i.test(siteUrl) || siteUrl.length > 500) {
+    return new Response(JSON.stringify({ error: 'Enter a valid site URL.' }), { status: 400, headers: { 'content-type': 'application/json' } });
+  }
+
+  try {
+    new URL(siteUrl);
+  } catch {
+    return new Response(JSON.stringify({ error: 'Enter a valid site URL.' }), { status: 400, headers: { 'content-type': 'application/json' } });
+  }
 
   const result = await createAuth().api.signUpEmail({ body: { name, email, password } });
   if (!result.user?.id || !(await bindRoot(result.user.id))) return new Response('Not Found', { status: 404 });
-  await ensureSiteSettings(new URL(request.url).origin);
+  await ensureSiteSettings(siteUrl);
   const adminPath = getAdminPath((env as unknown as { ADMIN_PATH?: string }).ADMIN_PATH);
   return redirect(`/${adminPath}/login`, 303);
 };

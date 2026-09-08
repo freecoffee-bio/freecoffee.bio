@@ -2,13 +2,14 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import * as z from 'zod'
+import { SiPaypal, SiStripe } from '@icons-pack/react-simple-icons'
 import { ArrowLeft, Coffee, Info, LockKeyhole, Mail, Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
+import { Field, FieldContent, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Textarea } from '@/components/ui/textarea'
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { showToast } from '@/lib/toast'
 
@@ -35,7 +36,8 @@ export function SupportForm({ creator, defaultSupportAmount = 500, currency = 'U
   const factor = 10 ** decimals
   const symbol = currency === 'USD' ? '$' : currency
   const providers = creator.paymentProviders ?? { stripe: false, paypal: false }
-  const defaultProvider = providers.stripe ? 'stripe' : 'paypal'
+  const availableProviders = (['stripe', 'paypal'] as const).filter((provider) => providers[provider])
+  const defaultProvider = availableProviders[0] ?? 'stripe'
   const [step, setStep] = useState<1 | 2>(1)
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -88,8 +90,8 @@ export function SupportForm({ creator, defaultSupportAmount = 500, currency = 'U
       <FieldGroup className="mt-6">
         <Controller name="email" control={form.control} render={({ field, fieldState }) => <Field data-invalid={fieldState.invalid}><FieldLabel htmlFor="support-email">Email</FieldLabel><Input {...field} id="support-email" type="email" aria-invalid={fieldState.invalid} placeholder="you@example.com" />{fieldState.invalid && <FieldError errors={[fieldState.error]} />}</Field>} />
         <div className="rounded-lg bg-muted p-3 text-sm leading-5 text-muted-foreground"><p>You are supporting {creator.name} directly. Tips are voluntary and freely given.</p><p className="mt-2 flex items-center gap-1.5"><Mail className="size-4 shrink-0" /> Your receipt will be sent to this email.</p></div>
-        {!providers.stripe && !providers.paypal ? <p className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">Payment is temporarily unavailable. Please try again later.</p> : <Controller name="provider" control={form.control} render={({ field, fieldState }) => <Field data-invalid={fieldState.invalid}><FieldLabel htmlFor="support-provider">Tip with...</FieldLabel><Select name={field.name} value={field.value} onValueChange={field.onChange} disabled={form.formState.isSubmitting}><SelectTrigger id="support-provider" className="h-11 w-full" aria-invalid={fieldState.invalid}><SelectValue placeholder="Choose a payment method" /></SelectTrigger><SelectContent position="popper" align="start" className="w-(--radix-select-trigger-width)"><SelectGroup>{providers.paypal && <SelectItem value="paypal">PayPal</SelectItem>}{providers.stripe && <SelectItem value="stripe">Card or bank card</SelectItem>}</SelectGroup></SelectContent></Select>{fieldState.invalid && <FieldError errors={[fieldState.error]} />}</Field>} />}
-        <Button className="w-full" size="lg" type="submit" disabled={form.formState.isSubmitting || (!providers.stripe && !providers.paypal)}><span className="flex-1 text-left">{form.formState.isSubmitting ? 'Opening secure checkout...' : 'Continue to payment'}</span>{symbol}{amount.toFixed(decimals)}<Send className="size-4" data-icon="inline-end" /></Button>
+        {!availableProviders.length ? <p className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">Payment is temporarily unavailable. Please try again later.</p> : <Controller name="provider" control={form.control} render={({ field, fieldState }) => <FieldSet data-invalid={fieldState.invalid}><FieldLegend variant="label">Payment method</FieldLegend><RadioGroup name={field.name} value={field.value} onValueChange={field.onChange} disabled={form.formState.isSubmitting} aria-invalid={fieldState.invalid} className="grid grid-cols-1 gap-2">{providers.stripe && <FieldLabel htmlFor="support-provider-stripe"><Field orientation="horizontal"><FieldContent><div className="flex items-center gap-2 font-medium"><SiStripe className="size-5 text-[#635BFF]" aria-hidden="true" />Credit or debit card</div><p className="text-sm font-normal text-muted-foreground">Pay securely with Stripe.</p></FieldContent><RadioGroupItem value="stripe" id="support-provider-stripe" /></Field></FieldLabel>}{providers.paypal && <FieldLabel htmlFor="support-provider-paypal"><Field orientation="horizontal"><FieldContent><div className="flex items-center gap-2 font-medium"><SiPaypal className="size-5 text-[#003087]" aria-hidden="true" />PayPal</div><p className="text-sm font-normal text-muted-foreground">Pay with your PayPal account.</p></FieldContent><RadioGroupItem value="paypal" id="support-provider-paypal" /></Field></FieldLabel>}</RadioGroup>{fieldState.invalid && <FieldError errors={[fieldState.error]} />}</FieldSet>} /> }
+        <Button className="w-full" size="lg" type="submit" disabled={form.formState.isSubmitting || !availableProviders.length}><span className="flex-1 text-left">{form.formState.isSubmitting ? 'Opening secure checkout...' : 'Continue to payment'}</span>{symbol}{amount.toFixed(decimals)}<Send className="size-4" data-icon="inline-end" /></Button>
         <p className="text-center text-xs text-muted-foreground">Payment is completed securely by the selected provider.</p>
       </FieldGroup>
     </>}

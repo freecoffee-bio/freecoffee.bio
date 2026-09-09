@@ -114,6 +114,7 @@ export const creatorProfiles = sqliteTable('creator_profiles', {
   handle: text('handle').notNull().unique(),
   displayName: text('display_name').notNull(),
   bio: text('bio'),
+  whatDo: text('what_do'),
   website: text('website'),
   image: text('image'),
   socialLinks: text('social_links'),

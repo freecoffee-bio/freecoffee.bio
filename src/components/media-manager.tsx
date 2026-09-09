@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Copy, File, Image, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination'
@@ -81,16 +82,18 @@ export function MediaManager({ initialStorage, initialFiles }: { initialStorage:
       <TabsContent value="configuration">
         <section className="settings-card mt-0">
           <div className="connected-heading"><h2>S3 storage</h2><p>Connect Backblaze B2, Cloudflare R2, or any standard S3-compatible service.</p></div>
-          <form className="profile-form" onSubmit={(event) => { event.preventDefault(); void save('save') }}>
-            <label>Endpoint<Input value={endpoint} onChange={(event) => setEndpoint(event.target.value)} placeholder="https://s3.us-west-004.backblazeb2.com" required /></label>
-            <label>Region<Input value={region} onChange={(event) => setRegion(event.target.value)} placeholder="us-east-1" required /></label>
-            <label>Bucket<Input value={bucket} onChange={(event) => setBucket(event.target.value)} required /></label>
-            <label>Path prefix<Input value={pathPrefix} onChange={(event) => setPathPrefix(event.target.value)} placeholder="media" /></label>
-            <label>Access key ID<Input value={accessKeyId} onChange={(event) => setAccessKeyId(event.target.value)} placeholder={storage.accessKeyConfigured ? 'Saved' : 'Required'} /><span className="field-help">{storage.accessKeyConfigured ? 'A key is already saved. Leave this field blank to keep it, or enter a new key ID to replace it.' : 'Enter the access key ID provided by your S3-compatible storage provider.'}</span></label>
-            <label>Secret access key<Input type="password" value={secretAccessKey} onChange={(event) => setSecretAccessKey(event.target.value)} placeholder={storage.secretKeyConfigured ? 'Saved' : 'Required'} /><span className="field-help">{storage.secretKeyConfigured ? 'A secret is already saved. Leave this field blank to keep it, or enter a new secret key to replace it.' : 'Enter the secret access key provided by your S3-compatible storage provider.'}</span></label>
-            <div className="check-row"><Checkbox id="force-path-style" checked={forcePathStyle} onCheckedChange={(checked) => setForcePathStyle(checked === true)} /><label htmlFor="force-path-style">Use path-style requests</label></div>
-            <div className="media-actions"><Button type="submit" disabled={busy}>Save storage</Button><Button type="button" variant="outline" disabled={busy} onClick={() => void save('test')}>Test connection</Button></div>
-            <p className="field-help">Credentials are stored in D1 and are never returned to the browser after saving.</p>
+          <form className="mt-6" onSubmit={(event) => { event.preventDefault(); void save('save') }}>
+            <FieldGroup>
+              <Field><FieldLabel htmlFor="storage-endpoint">Endpoint</FieldLabel><Input id="storage-endpoint" value={endpoint} onChange={(event) => setEndpoint(event.target.value)} placeholder="https://s3.us-west-004.backblazeb2.com" required /></Field>
+              <Field><FieldLabel htmlFor="storage-region">Region</FieldLabel><Input id="storage-region" value={region} onChange={(event) => setRegion(event.target.value)} placeholder="us-east-1" required /></Field>
+              <Field><FieldLabel htmlFor="storage-bucket">Bucket</FieldLabel><Input id="storage-bucket" value={bucket} onChange={(event) => setBucket(event.target.value)} required /></Field>
+              <Field><FieldLabel htmlFor="storage-path-prefix">Path prefix</FieldLabel><Input id="storage-path-prefix" value={pathPrefix} onChange={(event) => setPathPrefix(event.target.value)} placeholder="media" /></Field>
+              <Field><FieldLabel htmlFor="storage-access-key">Access key ID</FieldLabel><Input id="storage-access-key" value={accessKeyId} onChange={(event) => setAccessKeyId(event.target.value)} placeholder={storage.accessKeyConfigured ? 'Saved' : 'Required'} /><FieldDescription>{storage.accessKeyConfigured ? 'A key is already saved. Leave this field blank to keep it, or enter a new key ID to replace it.' : 'Enter the access key ID provided by your S3-compatible storage provider.'}</FieldDescription></Field>
+              <Field><FieldLabel htmlFor="storage-secret-key">Secret access key</FieldLabel><Input id="storage-secret-key" type="password" value={secretAccessKey} onChange={(event) => setSecretAccessKey(event.target.value)} placeholder={storage.secretKeyConfigured ? 'Saved' : 'Required'} /><FieldDescription>{storage.secretKeyConfigured ? 'A secret is already saved. Leave this field blank to keep it, or enter a new secret key to replace it.' : 'Enter the secret access key provided by your S3-compatible storage provider.'}</FieldDescription></Field>
+              <Field orientation="horizontal" className="items-center gap-3 rounded-lg border bg-muted/30 px-3 py-3"><Checkbox id="force-path-style" checked={forcePathStyle} onCheckedChange={(checked) => setForcePathStyle(checked === true)} /><FieldLabel htmlFor="force-path-style" className="font-medium">Use path-style requests</FieldLabel></Field>
+              <div className="media-actions"><Button type="submit" disabled={busy}>Save storage</Button><Button type="button" variant="outline" disabled={busy} onClick={() => void save('test')}>Test connection</Button></div>
+              <FieldDescription>Credentials are stored in D1 and are never returned to the browser after saving.</FieldDescription>
+            </FieldGroup>
           </form>
         </section>
       </TabsContent>

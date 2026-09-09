@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
-import { ChevronDown, ExternalLink, GitBranch, Globe, LogOut, Moon, Package, ShieldCheck, Share2, Sun, UserRound } from 'lucide-react'
+import { ChevronDown, ExternalLink, Globe, LogOut, Moon, Package, ShieldCheck, Share2, Sun, UserRound } from 'lucide-react'
+import { SiTwitch, SiX, SiYoutube } from '@icons-pack/react-simple-icons'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -8,6 +9,38 @@ import { AboutSupportPanel, AboutTab, GalleryTab, PostsTab, ShopTab } from '@/co
 import type { Creator, CurrentUser } from '@/components/creator-tabs'
 
 const tabs = ['About', 'Gallery', 'Posts', 'Shop']
+
+type SocialLink = { label: string; url: string; source: 'social' | 'connected' }
+
+function occupations(value?: string | null) {
+  if (!value) return []
+  try {
+    const parsed = JSON.parse(value)
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string' && Boolean(item.trim())) : []
+  } catch {
+    return value.trim() ? [value.trim()] : []
+  }
+}
+
+function socialLinks(value?: string | null): SocialLink[] {
+  if (!value) return []
+  try {
+    const links = JSON.parse(value)
+    return Array.isArray(links) ? links.filter((link): link is SocialLink => (link?.source === 'social' || link?.source === 'connected') && typeof link?.label === 'string' && typeof link?.url === 'string' && link.url.trim()) : []
+  } catch {
+    return []
+  }
+}
+
+function socialPlatform(link: SocialLink) {
+  try {
+    const hostname = new URL(/^https?:\/\//i.test(link.url) ? link.url : `https://${link.url}`).hostname.toLowerCase()
+    if (hostname === 'x.com' || hostname.endsWith('.x.com') || hostname === 'twitter.com' || hostname.endsWith('.twitter.com')) return { label: 'x.com', Icon: SiX }
+    if (hostname === 'twitch.tv' || hostname.endsWith('.twitch.tv')) return { label: 'Twitch', Icon: SiTwitch }
+    if (hostname === 'youtube.com' || hostname.endsWith('.youtube.com') || hostname === 'youtu.be' || hostname.endsWith('.youtu.be')) return { label: 'YouTube', Icon: SiYoutube }
+  } catch {}
+  return { label: link.label?.trim() || 'Social link', Icon: ExternalLink }
+}
 
 function tabFromHash(hash: string) {
   const value = decodeURIComponent(hash.replace(/^#/, ''))
@@ -24,7 +57,8 @@ type CreatorPageProps = {
 export function CreatorPage({ currentUser, creator = { name: 'Creator', showSupport: true, showShop: true, products: [] }, isAdmin = false, adminPath = 'admin' }: CreatorPageProps) {
   const [tab, setTab] = useState('About')
   const [darkMode, setDarkMode] = useState(false)
-
+  const links = socialLinks(creator.socialLinks)
+  const creatorOccupations = occupations(creator.whatDo)
 
   useEffect(() => {
     const dark = document.documentElement.classList.contains('dark')
@@ -72,8 +106,8 @@ export function CreatorPage({ currentUser, creator = { name: 'Creator', showSupp
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2"><h1 className="text-3xl font-semibold tracking-tight">{creator.name}</h1><span className="rounded-full bg-primary/10 px-2 py-1 text-xs text-primary">Creator</span></div>
 
-            <p className="mt-3 max-w-2xl text-base text-muted-foreground">{creator.welcomeMessage || creator.bio || 'This creator has not added a bio yet.'}</p>
-            <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">{creator.website && <a className="inline-flex items-center gap-1 hover:text-foreground" href={creator.website} target="_blank" rel="noreferrer"><Globe className="size-4" /> Website</a>}{creator.socialLinks && <span className="inline-flex items-center gap-1"><GitBranch className="size-4" /> Social links</span>}</div>
+            <div className="mt-3 flex flex-wrap gap-2">{creatorOccupations.length ? creatorOccupations.map((occupation) => <span className="rounded-full bg-muted/60 px-2.5 py-1 text-xs font-semibold text-muted-foreground" key={occupation}>{occupation}</span>) : <span className="text-base text-muted-foreground">This creator has not added a role yet.</span>}</div>
+            <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">{creator.website && <a className="inline-flex items-center gap-1 hover:text-foreground" href={creator.website} target="_blank" rel="noreferrer"><Globe className="size-4" /> Website</a>}{links.filter((link) => link.source !== 'connected').map((link, index) => { let hostname = link.url; try { hostname = new URL(/^https?:\/\//i.test(link.url) ? link.url : `https://${link.url}`).hostname.replace(/^www\./i, '') } catch {} return <a className="inline-flex items-center gap-1 hover:text-foreground" href={/^https?:\/\//i.test(link.url) ? link.url : `https://${link.url}`} target="_blank" rel="noreferrer" key={`${link.url}-${index}`}><ExternalLink className="size-4" aria-hidden="true" /> {hostname}</a> })}{links.filter((link) => link.source === 'connected').map((link, index) => { const platform = socialPlatform(link); return <a className="inline-flex items-center gap-1 hover:text-foreground" href={/^https?:\/\//i.test(link.url) ? link.url : `https://${link.url}`} target="_blank" rel="noreferrer" key={`${link.url}-${index}`}><span className="grid size-4 shrink-0 place-items-center"><platform.Icon className={platform.label === 'x.com' ? 'size-3.5' : 'size-4'} aria-hidden="true" /></span> {platform.label}</a> })}</div>
           </div>
           <div className="flex gap-2"><Button variant="outline" size="icon" aria-label="Share creator page"><Share2 className="size-4" /></Button>{isAdmin && <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="icon" aria-label="More options">•••</Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem asChild><a href={`/${adminPath}/settings`}>Edit page</a></DropdownMenuItem><DropdownMenuItem asChild><a href={`/${adminPath}/settings?tab=page`}>Edit goal</a></DropdownMenuItem></DropdownMenuContent></DropdownMenu>}<Button variant="outline" size="icon" type="button" onClick={toggleTheme} aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}>{darkMode ? <Sun className="size-4" /> : <Moon className="size-4" />}</Button></div>
         </div>

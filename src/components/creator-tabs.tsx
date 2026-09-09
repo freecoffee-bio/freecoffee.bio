@@ -32,7 +32,7 @@ type EditValues = { title: string; description: string; status: 'published' | 'd
 type GalleryItem = { id: string; albumId?: string | null; title: string; description?: string | null; imageUrl: string; linkUrl?: string | null; status?: 'published' | 'draft' }
 type Post = { id: string; title: string; excerpt?: string | null; coverImageUrl?: string | null; body: string; status?: 'published' | 'draft'; publishedAt?: string | Date | null }
 type SupportGoal = { enabled: boolean; title: string; amount: number; description?: string | null; raised: number }
-export type Creator = { name: string; currency?: string; bio?: string | null; image?: string | null; website?: string | null; socialLinks?: string | null; welcomeMessage?: string | null; defaultSupportAmount?: number; terms?: string | null; allowAnonymous?: boolean; showSupport?: boolean; showShop?: boolean; supportGoal?: SupportGoal | null; products?: Product[]; gallery?: GalleryItem[]; posts?: Post[]; supporters?: Supporter[]; paymentProviders?: { stripe: boolean; paypal: boolean } }
+export type Creator = { name: string; currency?: string; bio?: string | null; whatDo?: string | null; image?: string | null; website?: string | null; socialLinks?: string | null; welcomeMessage?: string | null; defaultSupportAmount?: number; terms?: string | null; allowAnonymous?: boolean; showSupport?: boolean; showShop?: boolean; supportGoal?: SupportGoal | null; products?: Product[]; gallery?: GalleryItem[]; posts?: Post[]; supporters?: Supporter[]; paymentProviders?: { stripe: boolean; paypal: boolean } }
 
 type TabProps = {
   creator: Creator
@@ -440,7 +440,7 @@ function SupportGoalCard({ creator, goal, isAdmin }: { creator: Creator; goal?: 
     }
     setBusy(true)
     try {
-      const response = await fetch('/api/admin/creator', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ displayName: creator.name, bio: creator.bio, website: creator.website, socialLinks: creator.socialLinks, supportGoalEnabled: true, supportGoalTitle: title.trim(), supportGoalAmount: goalAmount, supportGoalDescription: description.trim() }) })
+      const response = await fetch('/api/admin/creator', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ displayName: creator.name, bio: creator.bio, website: creator.website, socialLinks: creator.socialLinks, supportGoalEnabled: true, supportGoalTitle: title.trim(), supportGoalAmount: String(goalAmount / 100), supportGoalDescription: description.trim() }) })
       const result = await response.json().catch(() => ({})) as { error?: string }
       if (!response.ok) throw new Error(result.error || 'Unable to save support goal.')
       setOpen(false)

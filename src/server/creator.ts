@@ -23,7 +23,7 @@ export async function getPublicCreator(creatorId: number, includeDrafts = false)
     db.select().from(posts).where(includeDrafts ? eq(posts.creatorId, creator.id) : and(eq(posts.creatorId, creator.id), eq(posts.status, 'published'))).orderBy(desc(posts.publishedAt)),
     db.select({ name: supportTransactions.displayName, message: supportTransactions.message, amount: supportTransactions.amount, createdAt: supportTransactions.createdAt, anonymous: supportTransactions.anonymous }).from(supportTransactions).where(and(eq(supportTransactions.creatorId, creator.id), eq(supportTransactions.status, 'paid'))).orderBy(desc(supportTransactions.createdAt)).limit(10),
     db.select({ amount: sql<number>`coalesce(sum(${supportTransactions.amount}), 0)` }).from(supportTransactions).where(and(eq(supportTransactions.creatorId, creator.id), eq(supportTransactions.status, 'paid'))),
-    db.select({ currency: siteSettings.currency }).from(siteSettings).where(eq(siteSettings.id, 1)).limit(1),
+    db.select({ currency: siteSettings.currency, taxRate: siteSettings.taxRate }).from(siteSettings).where(eq(siteSettings.id, 1)).limit(1),
   ]);
   return {
     creator,
@@ -32,7 +32,7 @@ export async function getPublicCreator(creatorId: number, includeDrafts = false)
     gallery,
     posts: publishedPosts,
     supporters,
-    supportGoal: page[0]?.supportGoalAmount && page[0].supportGoalAmount > 0 ? { enabled: page[0].supportGoalEnabled, title: page[0].supportGoalTitle || 'Support goal', amount: page[0].supportGoalAmount, description: page[0].supportGoalDescription, raised: supportTotal[0]?.amount ?? 0 } : null,
+    supportGoal: page[0]?.supportGoalAmount && page[0].supportGoalAmount > 0 ? { enabled: page[0].supportGoalEnabled, title: page[0].supportGoalTitle || 'Support goal', amount: page[0].supportGoalAmount, description: page[0].supportGoalDescription, raised: Math.max(0, Math.round((supportTotal[0]?.amount ?? 0) * (10000 - (settings[0]?.taxRate ?? 0)) / 10000)) } : null,
     currency: settings[0]?.currency ?? 'USD',
     paymentProviders: {
       stripe: Boolean((await getPaymentSettings()).stripeSecretKey && (await getPaymentSettings()).stripeWebhookSecret),
@@ -75,12 +75,13 @@ export async function getCreatorWorkspace(user: { id: string; name: string }) {
   return { creator, page: page[0] ?? null, paymentAccounts, wallets, email: email[0] ?? null, emailDelivery };
 }
 
-export async function updateCreatorProfile(user: { id: string; name: string }, input: { displayName: string; bio?: string; website?: string; image?: string; socialLinks?: string }) {
+export async function updateCreatorProfile(user: { id: string; name: string }, input: { displayName: string; bio?: string; whatDo?: string; website?: string; image?: string; socialLinks?: string }) {
   const db = createDb(env.DB);
   const creator = await getOrCreateCreator(user);
   const values = {
     displayName: input.displayName.trim(),
     ...(input.bio !== undefined ? { bio: input.bio.trim() || null } : {}),
+    ...(input.whatDo !== undefined ? { whatDo: input.whatDo.trim() || null } : {}),
     ...(input.website !== undefined ? { website: input.website.trim() || null } : {}),
     ...(input.image !== undefined ? { image: input.image.trim() || null } : {}),
     ...(input.socialLinks !== undefined ? { socialLinks: input.socialLinks.trim() || null } : {}),

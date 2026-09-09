@@ -23,6 +23,7 @@ export const POST: APIRoute = async ({ request }) => {
 
       displayName: typeof body.displayName === 'string' ? body.displayName : user.name,
       bio: typeof body.bio === 'string' ? body.bio : undefined,
+      whatDo: typeof body.whatDo === 'string' ? body.whatDo : undefined,
       website: typeof body.website === 'string' ? body.website : undefined,
       image: typeof body.image === 'string' ? body.image : undefined,
       socialLinks: typeof body.socialLinks === 'string' ? body.socialLinks : undefined,

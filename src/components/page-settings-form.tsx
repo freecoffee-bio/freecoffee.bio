@@ -55,6 +55,7 @@ export function PageSettingsForm({ displayName, currency, page }: { displayName:
           displayName,
           themeColor: data.get('themeColor'),
           welcomeMessage: data.get('welcomeMessage'),
+
           defaultSupportAmount: String(data.get('defaultSupportAmount')),
           allowAnonymous: toggles.allowAnonymous,
           showSupport: toggles.showSupport,
@@ -89,6 +90,7 @@ export function PageSettingsForm({ displayName, currency, page }: { displayName:
         <FieldLabel htmlFor="page-welcome-message">Welcome message</FieldLabel>
         <Textarea id="page-welcome-message" name="welcomeMessage" rows={4} defaultValue={page?.welcomeMessage ?? ''} />
       </Field>
+
       <Field>
         <FieldLabel htmlFor="page-default-support">Default support amount</FieldLabel>
         <Input id="page-default-support" name="defaultSupportAmount" type="number" min="1" max="1000000" step="1" defaultValue={(page?.defaultSupportAmount ?? 500) / divisor} />

@@ -13,15 +13,15 @@
       "binding": "DB",
       "database_name": "freecoffee-db",
       "migrations_dir": "./migrations",
-      "database_id": "3af86531-c0a9-4566-930e-89a6d9abd140",
-      // "database_id": "local-development",
+      // "database_id": "3af86531-c0a9-4566-930e-89a6d9abd140",
+      "database_id": "local-development",
     },
   ],
   "kv_namespaces": [
     {
       "binding": "FREECOFFEE_KV",
-      "id": "7483c42d3ce24e9f81f743b305ae7ab8",
-      // "id": "local-development",
+      // "id": "7483c42d3ce24e9f81f743b305ae7ab8",
+      "id": "local-development",
     },
   ],
   "send_email": [

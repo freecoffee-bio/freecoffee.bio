@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import { env } from 'cloudflare:workers';
 import { createDb } from '../db';
 import { creatorPageSettings, creatorProfiles, orderItems, orders, paymentEvents, paymentRecords, products, supportTransactions, users, siteSettings } from '../db/schema';
@@ -58,9 +58,9 @@ async function createPayPalCheckout(input: PaymentInput): Promise<PaymentCheckou
   return { providerPaymentId: result.id, url: approve, requestPayload: JSON.stringify(requestPayload) };
 }
 
-export async function createSupportCheckout(input: { handle: string; amount: number; currency: Currency; provider: PaymentProviderName; email: string; displayName?: string; message?: string; anonymous?: boolean; returnUrl: string; cancelUrl: string }) {
+export async function createSupportCheckout(input: { amount: number; currency: Currency; provider: PaymentProviderName; email: string; displayName?: string; message?: string; anonymous?: boolean; returnUrl: string; cancelUrl: string }) {
   const db = createDb(env.DB);
-  const [creator] = await db.select().from(creatorProfiles).where(eq(creatorProfiles.handle, input.handle.toLowerCase())).limit(1);
+  const [creator] = await db.select().from(creatorProfiles).orderBy(asc(creatorProfiles.id)).limit(1);
   if (!creator) throw new Error('Creator page not found.');
   const [page] = await db.select().from(creatorPageSettings).where(eq(creatorPageSettings.creatorId, creator.id)).limit(1);
   if (page?.showSupport === false) throw new Error('Support is currently unavailable.');
@@ -86,9 +86,9 @@ export async function createSupportCheckout(input: { handle: string; amount: num
   }
 }
 
-export async function createOrderCheckout(input: { handle: string; productId: string; email: string; buyerUserId: string; provider: PaymentProviderName; returnUrl: string; cancelUrl: string }) {
+export async function createOrderCheckout(input: { productId: string; email: string; buyerUserId: string; provider: PaymentProviderName; returnUrl: string; cancelUrl: string }) {
   const db = createDb(env.DB);
-  const [creator] = await db.select().from(creatorProfiles).where(eq(creatorProfiles.handle, input.handle.toLowerCase())).limit(1);
+  const [creator] = await db.select().from(creatorProfiles).orderBy(asc(creatorProfiles.id)).limit(1);
   if (!creator) throw new Error('Creator page not found.');
   const [page] = await db.select({ showShop: creatorPageSettings.showShop }).from(creatorPageSettings).where(eq(creatorPageSettings.creatorId, creator.id)).limit(1);
   if (page?.showShop === false) throw new Error('This shop is currently unavailable.');

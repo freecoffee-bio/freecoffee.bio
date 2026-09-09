@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 type SocialLink = { label: string; url: string }
 
 type SocialLinksDialogProps = {
-  handle: string
+
   displayName: string
   bio?: string | null
   website?: string | null
@@ -24,7 +24,7 @@ function parseLinks(value?: string | null): SocialLink[] {
   }
 }
 
-export function SocialLinksDialog({ handle, displayName, bio, website, initialLinks }: SocialLinksDialogProps) {
+export function SocialLinksDialog({ displayName, bio, website, initialLinks }: SocialLinksDialogProps) {
   const [open, setOpen] = useState(false)
   const [links, setLinks] = useState<SocialLink[]>(() => parseLinks(initialLinks))
   const [saving, setSaving] = useState(false)
@@ -43,7 +43,7 @@ export function SocialLinksDialog({ handle, displayName, bio, website, initialLi
     const response = await fetch('/api/admin/creator', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ handle, displayName, bio, website, socialLinks: JSON.stringify(links.filter((link) => link.url.trim())) }),
+      body: JSON.stringify({ displayName, bio, website, socialLinks: JSON.stringify(links.filter((link) => link.url.trim())) }),
     })
     setSaving(false)
     if (response.ok) setOpen(false)

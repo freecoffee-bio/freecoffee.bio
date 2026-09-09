@@ -6,8 +6,8 @@ const MAX_REQUESTS = 8;
 type RateLimitStore = Pick<KVNamespace, 'get' | 'put'>;
 
 function store(): RateLimitStore | null {
-  const bindings = env as unknown as { SESSION?: KVNamespace };
-  return bindings.SESSION ?? null;
+  const bindings = env as unknown as { FREECOFFEE_KV?: KVNamespace };
+  return bindings.FREECOFFEE_KV ?? null;
 }
 
 export async function enforceRateLimit(request: Request, scope: string, limit = MAX_REQUESTS): Promise<{ allowed: boolean; retryAfter: number }> {

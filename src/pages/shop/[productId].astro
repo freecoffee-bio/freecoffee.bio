@@ -1,24 +1,22 @@
 ---
-import '../../../styles/global.css';
+import '../../styles/global.css';
 import geistLatinFont from '@fontsource-variable/geist/files/geist-latin-wght-normal.woff2';
 import { ArrowLeft, Coffee, ShoppingBag } from 'lucide-react';
-import { getPublicCreator } from '../../../server/creator';
-import { getCurrentUser } from '../../../server/session';
-import { ToastHost } from '../../../components/toast-host';
-import { getSiteSettings } from '../../../server/site-settings';
-import { calculateTax, formatMoney, isCurrency } from '../../../server/money';
+import { getDefaultPublicCreator } from '../../server/creator';
+import { getCurrentUser } from '../../server/session';
+import { ToastHost } from '../../components/toast-host';
+import { getSiteSettings } from '../../server/site-settings';
+import { calculateTax, formatMoney, isCurrency } from '../../server/money';
 
-const handle = Astro.params.handle;
-const path = Astro.params.path?.split('/').filter(Boolean) ?? [];
-if (!handle || path.length < 2) return new Response('Not Found', { status: 404 });
-const workspace = await getPublicCreator(handle);
+const productId = Astro.params.productId;
+if (!productId) return new Response('Not Found', { status: 404 });
+const workspace = await getDefaultPublicCreator();
 if (!workspace) return new Response('Not Found', { status: 404 });
 const currentUser = await getCurrentUser(Astro.request);
-const [type, id] = path;
-const product = type === 'shop' ? workspace.products.find((item) => item.id === id) : null;
-if (type !== 'shop' || !product || workspace.page?.showShop === false) return new Response('Not Found', { status: 404 });
+const product = workspace.products.find((item) => item.id === productId);
+if (!product || workspace.page?.showShop === false) return new Response('Not Found', { status: 404 });
 const title = product.name;
-const creatorUrl = `/c/${encodeURIComponent(workspace.creator.handle)}`;
+const creatorUrl = '/';
 const backLabel = 'Back to shop';
 const commerce = await getSiteSettings();
 const productCurrency = isCurrency(product.currency) ? product.currency : 'USD';
@@ -50,7 +48,7 @@ const totalAmount = product.price + taxAmount;
 
       <div class="min-h-[90vh]">
 
-      {type === 'shop' && product && <article class="mx-auto max-w-5xl px-4 py-6 sm:py-8">
+      {product && <article class="mx-auto max-w-5xl px-4 py-6 sm:py-8">
         <div class="grid gap-5 lg:grid-cols-[minmax(0,1.08fr)_minmax(320px,.92fr)] lg:items-start">
           <section class="overflow-hidden rounded-xl border bg-card shadow-sm">
             <div class="grid aspect-square place-items-center bg-muted">
@@ -64,7 +62,7 @@ const totalAmount = product.price + taxAmount;
             <p class="mt-5 text-center text-4xl font-semibold tracking-tight">{formatMoney(product.price, productCurrency)}</p>
             <p class="mt-2 text-center text-sm text-muted-foreground">One-time purchase</p>
             <dl class="mt-5 grid gap-2 border-y py-4 text-sm"><div class="flex justify-between"><dt class="text-muted-foreground">Subtotal</dt><dd>{formatMoney(product.price, productCurrency)}</dd></div>{commerce.taxRate > 0 && <div class="flex justify-between"><dt class="text-muted-foreground">Tax ({(commerce.taxRate / 100).toFixed(2)}%)</dt><dd>{formatMoney(taxAmount, productCurrency)}</dd></div>}<div class="flex justify-between font-semibold"><dt>Total</dt><dd>{formatMoney(totalAmount, productCurrency)}</dd></div></dl>
-            {workspace.paymentProviders.stripe || workspace.paymentProviders.paypal ? currentUser ? <form class="mt-7 grid gap-3" data-shop-checkout><input type="hidden" name="handle" value={workspace.creator.handle} /><input type="hidden" name="productId" value={product.id} /><label class="grid gap-2 text-sm font-medium" for="buyer-email">Receipt email<input id="buyer-email" required type="email" name="email" defaultValue={currentUser.email} placeholder="you@example.com" class="h-11 rounded-lg border bg-background px-3 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30" /></label><label class="grid gap-2 text-sm font-medium" for="payment-provider">Payment method<select id="payment-provider" name="provider" class="h-11 rounded-lg border bg-background px-3 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30">{workspace.paymentProviders.stripe && <option value="stripe">Card or bank card</option>}{workspace.paymentProviders.paypal && <option value="paypal">PayPal</option>}</select></label><p class="hidden rounded-lg bg-muted p-3 text-xs leading-5 text-muted-foreground" data-settlement-quote></p><button type="submit" class="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/80" data-checkout-button>Buy now <ShoppingBag className="size-4" /></button><p class="text-center text-xs leading-5 text-muted-foreground">Payment is completed securely by the selected provider.</p></form> : <div class="mt-7 grid gap-3"><p class="rounded-lg bg-muted p-3 text-sm leading-5 text-muted-foreground">Sign in is required to purchase this product. Your receipt and order history will be linked to your account.</p><a class="inline-flex h-11 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/80" href={`/login?redirect=${encodeURIComponent(Astro.url.pathname)}`}>Sign in to buy</a><a class="text-center text-sm text-primary hover:underline" href={`/register?redirect=${encodeURIComponent(Astro.url.pathname)}`}>Create an account</a></div> : <p class="mt-7 rounded-lg bg-muted p-3 text-sm leading-5 text-muted-foreground">Purchases are temporarily unavailable.</p>}
+            {workspace.paymentProviders.stripe || workspace.paymentProviders.paypal ? currentUser ? <form class="mt-7 grid gap-3" data-shop-checkout><input type="hidden" name="productId" value={product.id} /><label class="grid gap-2 text-sm font-medium" for="buyer-email">Receipt email<input id="buyer-email" required type="email" name="email" defaultValue={currentUser.email} placeholder="you@example.com" class="h-11 rounded-lg border bg-background px-3 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30" /></label><label class="grid gap-2 text-sm font-medium" for="payment-provider">Payment method<select id="payment-provider" name="provider" class="h-11 rounded-lg border bg-background px-3 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30">{workspace.paymentProviders.stripe && <option value="stripe">Card or bank card</option>}{workspace.paymentProviders.paypal && <option value="paypal">PayPal</option>}</select></label><p class="hidden rounded-lg bg-muted p-3 text-xs leading-5 text-muted-foreground" data-settlement-quote></p><button type="submit" class="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/80" data-checkout-button>Buy now <ShoppingBag className="size-4" /></button><p class="text-center text-xs leading-5 text-muted-foreground">Payment is completed securely by the selected provider.</p></form> : <div class="mt-7 grid gap-3"><p class="rounded-lg bg-muted p-3 text-sm leading-5 text-muted-foreground">Sign in is required to purchase this product. Your receipt and order history will be linked to your account.</p><a class="inline-flex h-11 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/80" href={`/login?redirect=${encodeURIComponent(Astro.url.pathname)}`}>Sign in to buy</a><a class="text-center text-sm text-primary hover:underline" href={`/register?redirect=${encodeURIComponent(Astro.url.pathname)}`}>Create an account</a></div> : <p class="mt-7 rounded-lg bg-muted p-3 text-sm leading-5 text-muted-foreground">Purchases are temporarily unavailable.</p>}
           </aside>
         </div>
       </article>}
@@ -76,7 +74,7 @@ const totalAmount = product.price + taxAmount;
         const loadQuote = async () => {
           if (!checkoutForm || !quoteBox) return;
           const data = new FormData(checkoutForm);
-          const response = await fetch(`/api/shop/quote?handle=${encodeURIComponent(data.get('handle'))}&productId=${encodeURIComponent(data.get('productId'))}&provider=${encodeURIComponent(data.get('provider'))}`);
+          const response = await fetch(`/api/shop/quote?productId=${encodeURIComponent(data.get('productId'))}&provider=${encodeURIComponent(data.get('provider'))}`);
           const quote = await response.json();
           if (!response.ok) { quoteBox.textContent = quote.error || 'Unable to calculate checkout quote.'; quoteBox.classList.remove('hidden'); return; }
           if (quote.settlementCurrency !== quote.currency) { quoteBox.textContent = `Provider settlement: ${quote.settlement} (${quote.settlementCurrency}). Conversion rate: 1 ${quote.currency} = ${quote.exchangeRate} ${quote.settlementCurrency}.`; quoteBox.classList.remove('hidden'); } else quoteBox.classList.add('hidden');

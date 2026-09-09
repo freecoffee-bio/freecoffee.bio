@@ -28,7 +28,7 @@ type Toggles = {
   supportGoalEnabled: boolean
 }
 
-export function PageSettingsForm({ handle, displayName, currency, page }: { handle: string; displayName: string; currency: string; page: PageSettings | null }) {
+export function PageSettingsForm({ displayName, currency, page }: { displayName: string; currency: string; page: PageSettings | null }) {
   const [toggles, setToggles] = useState<Toggles>({
     allowAnonymous: page?.allowAnonymous ?? true,
     showSupport: page?.showSupport ?? true,
@@ -52,7 +52,6 @@ export function PageSettingsForm({ handle, displayName, currency, page }: { hand
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          handle,
           displayName,
           themeColor: data.get('themeColor'),
           welcomeMessage: data.get('welcomeMessage'),

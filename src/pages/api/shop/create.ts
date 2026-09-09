@@ -16,13 +16,13 @@ export const POST: APIRoute = async ({ request }) => {
     const form = await request.formData();
     const body = Object.fromEntries(form.entries());
     const provider = body.provider === 'paypal' ? 'paypal' : body.provider === 'stripe' ? 'stripe' : null;
-    const handle = typeof body.handle === 'string' ? body.handle : '';
+
     const productId = typeof body.productId === 'string' ? body.productId : '';
     const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
     const user = await getCurrentUser(request);
     if (!user) return publicError('Sign in to purchase products.', 401, id);
-    if (!provider || !handle || !productId) return publicError('Choose a product and payment provider.', 400, id);
-    const result = await createOrderCheckout({ handle, productId, email, buyerUserId: user.id, provider: provider as PaymentProviderName, returnUrl: `${await getSiteCallbackUrl('/shop/success')}?reference={REFERENCE_ID}`, cancelUrl: await getSiteCallbackUrl(`/c/${encodeURIComponent(handle)}`) });
+    if (!provider || !productId) return publicError('Choose a product and payment provider.', 400, id);
+    const result = await createOrderCheckout({ productId, email, buyerUserId: user.id, provider: provider as PaymentProviderName, returnUrl: `${await getSiteCallbackUrl('/shop/success')}?reference={REFERENCE_ID}`, cancelUrl: await getSiteCallbackUrl('/') });
     if (request.headers.get('accept')?.includes('application/json')) return Response.json({ checkoutUrl: result.url }, { headers: { 'x-request-id': id } });
     return new Response(null, { status: 303, headers: { Location: result.url, 'x-request-id': id } });
   } catch (error) {

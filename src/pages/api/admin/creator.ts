@@ -20,7 +20,7 @@ export const POST: APIRoute = async ({ request }) => {
       await updateSiteSettings({ siteUrl: body.siteUrl });
     }
     const creator = await updateCreatorProfile(user, {
-      handle: typeof body.handle === 'string' ? body.handle : '',
+
       displayName: typeof body.displayName === 'string' ? body.displayName : user.name,
       bio: typeof body.bio === 'string' ? body.bio : undefined,
       website: typeof body.website === 'string' ? body.website : undefined,

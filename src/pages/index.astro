@@ -15,7 +15,6 @@ const workspace = await getDefaultPublicCreator(isAdmin);
 const adminPath = getAdminPath((env as unknown as { ADMIN_PATH?: string }).ADMIN_PATH);
 const creator = workspace ? {
   name: workspace.creator.displayName,
-  handle: workspace.creator.handle,
   currency: workspace.currency,
   bio: workspace.creator.bio,
   image: workspace.creator.image,

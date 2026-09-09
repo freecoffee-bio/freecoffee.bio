@@ -5,24 +5,25 @@ import { getPaymentSettings } from './payments';
 import { creatorPageSettings, creatorPaymentAccounts, creatorProfiles, creatorCryptoWallets, galleryItems, posts, products as productsTable, smtpSettings, siteSettings, supportTransactions } from '../db/schema';
 import { activateEmailProvider, getEmailDeliverySettings } from './email-config';
 
-function slugify(value: string) {
-  const slug = value.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-  return slug.slice(0, 40) || 'creator';
+
+export async function getDefaultPublicCreator(includeDrafts = false) {
+  const db = createDb(env.DB);
+  const [creator] = await db.select().from(creatorProfiles).orderBy(asc(creatorProfiles.id)).limit(1);
+  return creator ? getPublicCreator(creator.id, includeDrafts) : null;
 }
 
-export async function getPublicCreator(handle: string, includeDrafts = false) {
+export async function getPublicCreator(creatorId: number, includeDrafts = false) {
   const db = createDb(env.DB);
-  const [creator] = await db.select().from(creatorProfiles).where(eq(creatorProfiles.handle, handle.toLowerCase())).limit(1);
+  const [creator] = await db.select().from(creatorProfiles).where(eq(creatorProfiles.id, creatorId)).limit(1);
   if (!creator) return null;
   const [page, products, gallery, publishedPosts, supporters, supportTotal, settings] = await Promise.all([
     db.select().from(creatorPageSettings).where(eq(creatorPageSettings.creatorId, creator.id)).limit(1),
     db.select().from(productsTable).where(and(eq(productsTable.creatorId, creator.id), eq(productsTable.status, 'published'))),
     db.select().from(galleryItems).where(includeDrafts ? eq(galleryItems.creatorId, creator.id) : and(eq(galleryItems.creatorId, creator.id), eq(galleryItems.status, 'published'))).orderBy(galleryItems.sortOrder),
-    db.select().from(posts).where(includeDrafts ? eq(posts.creatorId, creator.id) : and(eq(posts.creatorId, creator.id), eq(posts.status, 'published'))).orderBy(desc(posts.publishedAt)), 
+    db.select().from(posts).where(includeDrafts ? eq(posts.creatorId, creator.id) : and(eq(posts.creatorId, creator.id), eq(posts.status, 'published'))).orderBy(desc(posts.publishedAt)),
     db.select({ name: supportTransactions.displayName, message: supportTransactions.message, amount: supportTransactions.amount, createdAt: supportTransactions.createdAt, anonymous: supportTransactions.anonymous }).from(supportTransactions).where(and(eq(supportTransactions.creatorId, creator.id), eq(supportTransactions.status, 'paid'))).orderBy(desc(supportTransactions.createdAt)).limit(10),
     db.select({ amount: sql<number>`coalesce(sum(${supportTransactions.amount}), 0)` }).from(supportTransactions).where(and(eq(supportTransactions.creatorId, creator.id), eq(supportTransactions.status, 'paid'))),
     db.select({ currency: siteSettings.currency }).from(siteSettings).where(eq(siteSettings.id, 1)).limit(1),
-
   ]);
   return {
     creator,
@@ -31,13 +32,7 @@ export async function getPublicCreator(handle: string, includeDrafts = false) {
     gallery,
     posts: publishedPosts,
     supporters,
-    supportGoal: page[0]?.supportGoalAmount && page[0].supportGoalAmount > 0 ? {
-      enabled: page[0].supportGoalEnabled,
-      title: page[0].supportGoalTitle || 'Support goal',
-      amount: page[0].supportGoalAmount,
-      description: page[0].supportGoalDescription,
-      raised: supportTotal[0]?.amount ?? 0,
-    } : null,
+    supportGoal: page[0]?.supportGoalAmount && page[0].supportGoalAmount > 0 ? { enabled: page[0].supportGoalEnabled, title: page[0].supportGoalTitle || 'Support goal', amount: page[0].supportGoalAmount, description: page[0].supportGoalDescription, raised: supportTotal[0]?.amount ?? 0 } : null,
     currency: settings[0]?.currency ?? 'USD',
     paymentProviders: {
       stripe: Boolean((await getPaymentSettings()).stripeSecretKey && (await getPaymentSettings()).stripeWebhookSecret),
@@ -46,24 +41,14 @@ export async function getPublicCreator(handle: string, includeDrafts = false) {
   };
 }
 
-export async function getDefaultPublicCreator(includeDrafts = false) {
-  const db = createDb(env.DB);
-  const [creator] = await db.select({ handle: creatorProfiles.handle }).from(creatorProfiles).orderBy(asc(creatorProfiles.id)).limit(1);
-  return creator ? getPublicCreator(creator.handle, includeDrafts) : null;
-}
-
 export async function getOrCreateCreator(user: { id: string; name: string }) {
   const db = createDb(env.DB);
-  const existing = await db.select().from(creatorProfiles).where(eq(creatorProfiles.userId, user.id)).limit(1);
+  // This is a single-site app: every authenticated admin operation uses the
+  // same public creator profile, regardless of the auth user's ID.
+  const existing = await db.select().from(creatorProfiles).orderBy(asc(creatorProfiles.id)).limit(1);
   if (existing[0]) return existing[0];
 
-  const baseHandle = slugify(user.name);
-  let handle = baseHandle;
-  for (let suffix = 2; ; suffix += 1) {
-    const conflict = await db.select({ id: creatorProfiles.id }).from(creatorProfiles).where(eq(creatorProfiles.handle, handle)).limit(1);
-    if (!conflict[0]) break;
-    handle = `${baseHandle}-${suffix}`.slice(0, 50);
-  }
+  const handle = 'site';
 
   const now = new Date();
   const [creator] = await db.insert(creatorProfiles).values({
@@ -90,15 +75,18 @@ export async function getCreatorWorkspace(user: { id: string; name: string }) {
   return { creator, page: page[0] ?? null, paymentAccounts, wallets, email: email[0] ?? null, emailDelivery };
 }
 
-export async function updateCreatorProfile(user: { id: string; name: string }, input: { handle: string; displayName: string; bio?: string; website?: string; image?: string; socialLinks?: string }) {
+export async function updateCreatorProfile(user: { id: string; name: string }, input: { displayName: string; bio?: string; website?: string; image?: string; socialLinks?: string }) {
   const db = createDb(env.DB);
   const creator = await getOrCreateCreator(user);
-  const handle = input.handle.trim().toLowerCase();
-  if (!/^[a-z0-9](?:[a-z0-9-]{1,48}[a-z0-9])?$/.test(handle)) throw new Error('Use 2–50 lowercase letters, numbers, or hyphens for your username.');
-  const conflict = await db.select({ id: creatorProfiles.id }).from(creatorProfiles).where(and(eq(creatorProfiles.handle, handle), eq(creatorProfiles.id, creator.id))).limit(1);
-  const other = await db.select({ id: creatorProfiles.id }).from(creatorProfiles).where(eq(creatorProfiles.handle, handle)).limit(1);
-  if (other[0] && !conflict[0]) throw new Error('That username is already in use.');
-  const [updated] = await db.update(creatorProfiles).set({ handle, displayName: input.displayName.trim(), bio: input.bio?.trim() || null, website: input.website?.trim() || null, image: input.image?.trim() || null, socialLinks: input.socialLinks?.trim() || null, updatedAt: new Date() }).where(eq(creatorProfiles.id, creator.id)).returning();
+  const values = {
+    displayName: input.displayName.trim(),
+    ...(input.bio !== undefined ? { bio: input.bio.trim() || null } : {}),
+    ...(input.website !== undefined ? { website: input.website.trim() || null } : {}),
+    ...(input.image !== undefined ? { image: input.image.trim() || null } : {}),
+    ...(input.socialLinks !== undefined ? { socialLinks: input.socialLinks.trim() || null } : {}),
+    updatedAt: new Date(),
+  };
+  const [updated] = await db.update(creatorProfiles).set(values).where(eq(creatorProfiles.id, creator.id)).returning();
   return updated;
 }
 

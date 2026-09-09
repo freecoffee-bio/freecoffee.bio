@@ -3,7 +3,7 @@ import { Button } from './ui/button'
 import { Textarea } from './ui/textarea'
 import { showToast } from '@/lib/toast'
 
-export function ShopTermsEditor({ handle, displayName, initialTerms }: { handle: string; displayName: string; initialTerms: string }) {
+export function ShopTermsEditor({ displayName, initialTerms }: { displayName: string; initialTerms: string }) {
   const [terms, setTerms] = useState(initialTerms)
   const [busy, setBusy] = useState(false)
 
@@ -11,7 +11,7 @@ export function ShopTermsEditor({ handle, displayName, initialTerms }: { handle:
     event.preventDefault()
     setBusy(true)
     try {
-      const response = await fetch('/api/admin/creator', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ handle, displayName, terms }) })
+      const response = await fetch('/api/admin/creator', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ displayName, terms }) })
       const result = await response.json().catch(() => ({})) as { error?: string }
       if (!response.ok) throw new Error(result.error || 'Unable to save terms.')
       showToast('Shop terms saved.', 'success')

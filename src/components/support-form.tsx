@@ -14,7 +14,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { showToast } from '@/lib/toast'
 
 type SupportFormProps = {
-  creator: { name: string; handle: string; allowAnonymous?: boolean; paymentProviders?: { stripe: boolean; paypal: boolean } }
+  creator: { name: string; allowAnonymous?: boolean; paymentProviders?: { stripe: boolean; paypal: boolean } }
   defaultSupportAmount?: number
   currency?: string
   onSubmitted: (email: string, amount: number) => void
@@ -63,7 +63,7 @@ export function SupportForm({ creator, defaultSupportAmount = 500, currency = 'U
       const response = await fetch('/api/support/create', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ handle: creator.handle, amount: values.amount, provider: values.provider, email: values.email, displayName: values.displayName, message: values.message, anonymous: values.anonymous }),
+        body: JSON.stringify({ amount: values.amount, provider: values.provider, email: values.email, displayName: values.displayName, message: values.message, anonymous: values.anonymous }),
       })
       const result = await response.json() as { checkoutUrl?: string; error?: string }
       if (!response.ok || !result.checkoutUrl) throw new Error(result.error || 'Unable to start checkout.')

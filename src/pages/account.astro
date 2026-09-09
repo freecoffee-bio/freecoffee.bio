@@ -19,10 +19,16 @@ if (!user) return Astro.redirect(`/login?redirect=${encodeURIComponent('/account
     <ToastHost client:load />
     <main class="mx-auto w-full max-w-2xl px-4 py-10 sm:py-14">
       <header class="mb-8 flex items-start justify-between gap-4">
-        <div><a href="/" class="font-mono text-xs uppercase tracking-widest text-primary">FreeCoffee.bio</a><h1 class="mt-3 text-3xl font-semibold">Account security</h1><p class="mt-2 text-muted-foreground">Manage sign-in protection for {user.email}.</p></div>
+        <div>
+          <a href="/" class="font-mono text-xs uppercase tracking-widest text-primary">FreeCoffee.bio</a>
+          <h1 class="mt-3 text-3xl font-semibold">Account security</h1>
+          <p class="mt-2 text-muted-foreground">Manage sign-in protection for {user.email}.</p>
+        </div>
         <a class="shrink-0 text-sm text-primary hover:underline" href="/">Back to page</a>
       </header>
-      <section class="rounded-lg border bg-card p-5 shadow-sm sm:p-7"><TwoFactorSettings client:load initialEnabled={user.twoFactorEnabled ?? false} /></section>
+      <section class="rounded-lg border bg-card p-5 shadow-sm sm:p-7">
+        <TwoFactorSettings client:load initialEnabled={user.twoFactorEnabled ?? false} />
+      </section>
     </main>
   </body>
 </html>

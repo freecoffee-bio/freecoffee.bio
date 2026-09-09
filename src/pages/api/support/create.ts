@@ -19,10 +19,10 @@ export const POST: APIRoute = async ({ request }) => {
     const settings = await getSiteSettings();
     const amount = typeof body.amount === 'string' ? amountToMinor(body.amount, settings.currency) : -1;
     const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
-    const handle = typeof body.handle === 'string' ? body.handle : '';
+
     const user = await getCurrentUser(request);
     const result = await createSupportCheckout({
-      handle,
+
       amount,
       currency: settings.currency,
       provider: provider as PaymentProviderName,
@@ -31,7 +31,7 @@ export const POST: APIRoute = async ({ request }) => {
       message: typeof body.message === 'string' ? body.message : undefined,
       anonymous: body.anonymous === true,
       returnUrl: `${await getSiteCallbackUrl('/support/success')}?reference={REFERENCE_ID}`,
-      cancelUrl: await getSiteCallbackUrl(`/c/${encodeURIComponent(handle)}`),
+      cancelUrl: await getSiteCallbackUrl('/'),
     });
     return Response.json({ checkoutUrl: result.url, id: result.id, userId: user?.id ?? null }, { headers: { 'x-request-id': id } });
   } catch (error) {

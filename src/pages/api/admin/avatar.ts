@@ -31,7 +31,11 @@ export const POST: APIRoute = async ({ request }) => {
     const creator = await getOrCreateCreator(user)
     const previousImage = creator.image
     const media = await uploadMedia(env.DB, file, 'avatars', user.id)
-    await db.update(creatorProfiles).set({ image: media.publicUrl, updatedAt: new Date() }).where(eq(creatorProfiles.id, creator.id))
+    const [updatedCreator] = await db.update(creatorProfiles).set({ image: media.publicUrl, updatedAt: new Date() }).where(eq(creatorProfiles.id, creator.id)).returning({ id: creatorProfiles.id, image: creatorProfiles.image })
+    if (!updatedCreator || updatedCreator.image !== media.publicUrl) {
+      try { await deleteMedia(env.DB, media.id) } catch (error) { console.error('Avatar rollback failed', error) }
+      throw new Error('Avatar upload completed, but the profile could not be updated.')
+    }
 
     if (previousImage) {
       const [previousMedia] = await db.select({ id: mediaFiles.id }).from(mediaFiles).where(and(eq(mediaFiles.publicUrl, previousImage), eq(mediaFiles.folder, 'avatars'), eq(mediaFiles.uploadedBy, user.id))).limit(1)
@@ -44,7 +48,7 @@ export const POST: APIRoute = async ({ request }) => {
       }
     }
 
-    return Response.json({ image: media.publicUrl }, { status: 201 })
+    return Response.json({ image: updatedCreator.image }, { status: 201 })
   } catch (error) {
     console.error('Avatar upload failed', error)
     return Response.json({ error: error instanceof Error ? error.message : 'Unable to upload avatar.' }, { status: 400 })

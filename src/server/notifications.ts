@@ -9,13 +9,20 @@ export type NotificationTemplate = typeof notificationTemplates.$inferSelect;
 export const defaultNotificationTemplates = [
   { eventKey: 'support-receipt', displayName: 'Support payment receipt', description: 'Sent to a supporter after a payment is completed.', subject: 'Your {{siteName}} support receipt', bodyText: 'Thank you for supporting {{siteName}}. Your payment of {{amount}} {{currency}} was confirmed.', bodyHtml: '<p>Thank you for supporting {{siteName}}.</p><p>Your payment of <strong>{{amount}} {{currency}}</strong> was confirmed.</p>' },
   { eventKey: 'creator-support-notification', displayName: 'New support notification', description: 'Sent to the creator when someone sends support.', subject: 'You received support on {{siteName}}', bodyText: '{{supporterName}} sent {{amount}} {{currency}}.', bodyHtml: '<p>{{supporterName}} sent <strong>{{amount}} {{currency}}</strong>.</p>' },
-  { eventKey: 'order-receipt', displayName: 'Order payment receipt', description: 'Sent to a buyer after a shop order is paid.', subject: 'Your {{siteName}} purchase', bodyText: 'Your order {{orderId}} was confirmed.\n\nSign in to your account and open My orders to download your purchase.\n\n{{downloadLinks}}', bodyHtml: '<p>Your order <strong>{{orderId}}</strong> was confirmed.</p><p>Sign in to your account and open My orders to download your purchase.</p><p>{{downloadLinks}}</p>' },
+  { eventKey: 'order-receipt', displayName: 'Order payment receipt', description: 'Sent to a buyer after a shop order is paid.', subject: 'Your {{siteName}} purchase', bodyText: 'Your order {{orderId}} was confirmed.\n\nSign in to your account and open My orders to download your purchase.', bodyHtml: '<p>Your order <strong>{{orderId}}</strong> was confirmed.</p><p>Sign in to your account and open My orders to download your purchase.</p>' },
 ];
+
+const legacyOrderReceipt = {
+  bodyText: 'Your order {{orderId}} was confirmed.\n\nSign in to your account and open My orders to download your purchase.\n\n{{downloadLinks}}',
+  bodyHtml: '<p>Your order <strong>{{orderId}}</strong> was confirmed.</p><p>Sign in to your account and open My orders to download your purchase.</p><p>{{downloadLinks}}</p>',
+};
 
 export async function ensureNotificationTemplates() {
   const db = createDb(env.DB);
   const now = new Date();
   await db.insert(notificationTemplates).values(defaultNotificationTemplates.map((template) => ({ id: template.eventKey, channel: 'email', ...template, enabled: true, createdAt: now, updatedAt: now }))).onConflictDoNothing({ target: [notificationTemplates.eventKey, notificationTemplates.channel] });
+  const orderReceipt = defaultNotificationTemplates.find((template) => template.eventKey === 'order-receipt')!;
+  await db.update(notificationTemplates).set({ bodyText: orderReceipt.bodyText, bodyHtml: orderReceipt.bodyHtml, updatedAt: now }).where(and(eq(notificationTemplates.eventKey, 'order-receipt'), eq(notificationTemplates.channel, 'email'), eq(notificationTemplates.bodyText, legacyOrderReceipt.bodyText), eq(notificationTemplates.bodyHtml, legacyOrderReceipt.bodyHtml)));
 }
 
 export async function listNotificationTemplates() {

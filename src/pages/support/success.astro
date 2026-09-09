@@ -4,5 +4,34 @@ const reference = Astro.url.searchParams.get('reference');
 ---
 <html lang="en">
   <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width" /><title>Payment status — FreeCoffee.bio</title></head>
-  <body><main class="grid min-h-screen place-items-center bg-muted/30 p-5"><section class="w-full max-w-lg rounded-xl border bg-card p-8 text-center shadow-sm"><h1 class="text-2xl font-semibold">Payment submitted</h1><p class="mt-3 text-sm leading-6 text-muted-foreground">Your payment is being confirmed. We will use the provider notification to update the final status and send your receipt.</p>{reference && <p class="mt-5 break-all font-mono text-xs text-muted-foreground">Reference: {reference}</p>}<a class="mt-6 inline-flex rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground" href="/">Return home</a></section></main></body>
+  <body><main class="grid min-h-screen place-items-center bg-muted/30 p-5"><section class="w-full max-w-lg rounded-xl border bg-card p-8 text-center shadow-sm" data-payment-status data-reference={reference ?? ''}><h1 class="text-2xl font-semibold" data-status-title>Confirming payment</h1><p class="mt-3 text-sm leading-6 text-muted-foreground" data-status-message>Please wait while we confirm your payment.</p>{reference && <p class="mt-5 break-all font-mono text-xs text-muted-foreground">Reference: {reference}</p>}<a class="mt-6 inline-flex rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground" href="/">Return home</a></section></main><script>
+    const container = document.querySelector<HTMLElement>('[data-payment-status]');
+    const title = container?.querySelector<HTMLElement>('[data-status-title]');
+    const message = container?.querySelector<HTMLElement>('[data-status-message]');
+    const referenceId = container?.dataset.reference;
+
+    if (!referenceId) {
+      if (title) title.textContent = 'Payment could not be confirmed';
+      if (message) message.textContent = 'The payment reference is missing. Please return home and try again.';
+    } else {
+      fetch('/api/paypal/capture', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ referenceId }),
+      }).then(async (response) => {
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || 'Payment could not be confirmed.');
+        if (result.status === 'completed') {
+          if (title) title.textContent = 'Payment completed';
+          if (message) message.textContent = 'Your payment is complete. Your receipt will be sent shortly.';
+        } else {
+          if (title) title.textContent = 'Payment submitted';
+          if (message) message.textContent = 'Your payment is being confirmed by the payment provider. Your receipt will be sent after confirmation.';
+        }
+      }).catch(() => {
+        if (title) title.textContent = 'Payment could not be confirmed';
+        if (message) message.textContent = 'We could not confirm the payment yet. Please check again later or contact the site owner.';
+      });
+    }
+  </script></body>
 </html>

@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { markPaymentComplete, recordPaymentEvent, updatePaymentEvent, getPaymentSettings } from '../../../server/payments';
+import { capturePayPalPayment, markPaymentComplete, recordPaymentEvent, updatePaymentEvent, getPaymentSettings } from '../../../server/payments';
 import { publicError, requestId } from '../../../server/http';
 import { amountToMinor } from '../../../server/money';
 import { paypalApiBase } from '../../../server/payment-payloads';
@@ -112,7 +112,18 @@ export const POST: APIRoute = async ({ request }) => {
   if (!inserted) return Response.json({ received: true }, { headers: { 'x-request-id': id } });
 
   try {
-    if (event.event_type !== 'PAYMENT.CAPTURE.COMPLETED' && event.event_type !== 'CHECKOUT.ORDER.COMPLETED') {
+    if (event.event_type === 'CHECKOUT.ORDER.APPROVED') {
+      const orderId = event.resource?.id;
+      const referenceIdFromEvent = getReferenceId(event);
+      const order = orderId && !referenceIdFromEvent ? await getPayPalOrderDetails(orderId) : undefined;
+      const referenceId = referenceIdFromEvent ?? getReferenceId({ resource: {} }, order);
+      if (!referenceId) {
+        await updatePaymentEvent('paypal', event.id, 'ignored', 'Missing payment reference.');
+      } else {
+        await capturePayPalPayment(referenceId);
+        await updatePaymentEvent('paypal', event.id, 'processed');
+      }
+    } else if (event.event_type !== 'PAYMENT.CAPTURE.COMPLETED' && event.event_type !== 'CHECKOUT.ORDER.COMPLETED') {
       await updatePaymentEvent('paypal', event.id, 'ignored');
     } else {
       const orderId = event.resource?.supplementary_data?.related_ids?.order_id ?? event.resource?.id;

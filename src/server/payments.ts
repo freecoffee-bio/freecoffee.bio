@@ -6,7 +6,8 @@ import { dispatchEmailNotification } from './notifications';
 import { getPaymentProviderConfig, getSiteSettings } from './site-settings';
 import { buildPayPalCheckoutPayload, buildStripeCheckoutPayload, paypalApiBase } from './payment-payloads';
 import { convertCurrency } from './exchange-rate';
-import { calculateTax, formatMoney, isCurrency, type Currency } from './money';
+import { amountToMinor, calculateTax, formatMoney, isCurrency, type Currency } from './money';
+import { capturePayPalReference, type PayPalCapture } from './paypal-capture';
 
 export type PaymentProviderName = 'stripe' | 'paypal';
 
@@ -127,6 +128,45 @@ async function sendNotification(recipient: string, template: string, referenceId
   await dispatchEmailNotification({ recipient, eventKey: template, referenceId, data });
 }
 
+type PayPalOrderResult = { id?: string; status?: string; purchase_units?: Array<{ payments?: { captures?: Array<{ status?: string; amount?: { currency_code?: string; value?: string } }> } }> };
+
+function parseCompletedPayPalOrder(orderId: string, result: PayPalOrderResult): PayPalCapture {
+  const capture = result.purchase_units?.[0]?.payments?.captures?.[0];
+  if (result.id !== orderId || result.status !== 'COMPLETED' || capture?.status !== 'COMPLETED' || !capture.amount?.currency_code || !capture.amount.value) throw new Error('PayPal capture was not completed.');
+  return { orderId: result.id, amount: amountToMinor(capture.amount.value, capture.amount.currency_code), currency: capture.amount.currency_code };
+}
+
+async function capturePayPalOrder(orderId: string): Promise<PayPalCapture> {
+  const token = await getPayPalAccessToken();
+  const settings = await getPaymentSettings();
+  const apiBase = paypalApiBase(settings.paypalSandbox);
+  const response = await fetch(`${apiBase}/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'PayPal-Request-Id': `capture-${orderId}` },
+  });
+  const result = await response.json() as PayPalOrderResult & { details?: Array<{ issue?: string }> };
+  if (response.ok) return parseCompletedPayPalOrder(orderId, result);
+
+  if (result.details?.some((detail) => detail.issue === 'ORDER_ALREADY_CAPTURED')) {
+    const lookup = await fetch(`${apiBase}/v2/checkout/orders/${encodeURIComponent(orderId)}`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!lookup.ok) throw new Error(`PayPal order lookup failed with status ${lookup.status}.`);
+    return parseCompletedPayPalOrder(orderId, await lookup.json() as PayPalOrderResult);
+  }
+  throw new Error(`PayPal capture failed with status ${response.status}.`);
+}
+
+export async function capturePayPalPayment(referenceId: string) {
+  const db = createDb(env.DB);
+  return capturePayPalReference(referenceId, {
+    findPayment: async (id) => {
+      const [payment] = await db.select({ provider: paymentRecords.provider, providerPaymentId: paymentRecords.providerPaymentId, status: paymentRecords.status, amount: paymentRecords.amount, currency: paymentRecords.currency }).from(paymentRecords).where(eq(paymentRecords.referenceId, id)).limit(1);
+      return payment ?? null;
+    },
+    captureOrder: capturePayPalOrder,
+    completePayment: async (id, capture) => markPaymentComplete(id, 'paypal', capture.orderId, capture.amount, capture.currency),
+  });
+}
+
 export async function findPaymentReference(provider: string, providerPaymentId: string) {
   const db = createDb(env.DB);
   const [payment] = await db.select({ referenceId: paymentRecords.referenceId }).from(paymentRecords).where(and(eq(paymentRecords.provider, provider), eq(paymentRecords.providerPaymentId, providerPaymentId))).limit(1);
@@ -164,7 +204,7 @@ export async function markPaymentComplete(referenceId: string, provider: string,
   } else if (payment.kind === 'order') {
     await db.update(orders).set({ status: 'paid', paidAt: now, providerPaymentId }).where(eq(orders.id, referenceId));
     const [order] = await db.select().from(orders).where(eq(orders.id, referenceId)).limit(1);
-    if (order) await sendNotification(order.buyerEmail, 'order-receipt', referenceId, { siteName: 'FreeCoffee.bio', orderId: order.id, amount: formatMoney(order.totalAmount, order.currency as Currency), currency: order.currency, downloadLinks: 'Sign in to your account and open My orders to download your purchase.' });
+    if (order) await sendNotification(order.buyerEmail, 'order-receipt', referenceId, { siteName: 'FreeCoffee.bio', orderId: order.id, amount: formatMoney(order.totalAmount, order.currency as Currency), currency: order.currency });
   }
 }
 

@@ -1,0 +1,28 @@
+---
+import '../styles/global.css';
+import { ToastHost } from '../components/toast-host';
+import { TwoFactorSettings } from '../components/two-factor-settings';
+import { getCurrentUser } from '../server/session';
+
+const user = await getCurrentUser(Astro.request);
+if (!user) return Astro.redirect(`/login?redirect=${encodeURIComponent('/account')}`);
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <link rel="icon" type="image/png" href="/icon.png" />
+    <title>Account security — FreeCoffee.bio</title>
+  </head>
+  <body class="min-h-screen bg-muted/30">
+    <ToastHost client:load />
+    <main class="mx-auto w-full max-w-2xl px-4 py-10 sm:py-14">
+      <header class="mb-8 flex items-start justify-between gap-4">
+        <div><a href="/" class="font-mono text-xs uppercase tracking-widest text-primary">FreeCoffee.bio</a><h1 class="mt-3 text-3xl font-semibold">Account security</h1><p class="mt-2 text-muted-foreground">Manage sign-in protection for {user.email}.</p></div>
+        <a class="shrink-0 text-sm text-primary hover:underline" href="/">Back to page</a>
+      </header>
+      <section class="rounded-lg border bg-card p-5 shadow-sm sm:p-7"><TwoFactorSettings client:load initialEnabled={user.twoFactorEnabled ?? false} /></section>
+    </main>
+  </body>
+</html>

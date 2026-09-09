@@ -3,6 +3,7 @@ import '../styles/global.css';
 import { ToastHost } from '../components/toast-host';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
+import { Turnstile } from '../components/turnstile';
 ---
 <html lang="en">
   <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width" /><title>Sign in — FreeCoffee.bio</title></head>
@@ -16,6 +17,7 @@ import { Input } from '../components/ui/input';
         <form class="mt-7 space-y-4" id="user-login-form">
           <label class="block text-sm font-medium">Email<Input required name="email" type="email" autoComplete="email" className="mt-2 h-11 w-full" /></label>
           <label class="block text-sm font-medium">Password<Input required name="password" type="password" autoComplete="current-password" className="mt-2 h-11 w-full" /></label>
+          <Turnstile client:load />
           <Button className="h-11 w-full" type="submit">Sign in</Button>
 
         </form>
@@ -27,9 +29,12 @@ import { Input } from '../components/ui/input';
       const showToast = (message) => window.dispatchEvent(new CustomEvent('freecoffee:toast', { detail: { message, type: 'error' } }));
       form?.addEventListener('submit', async (event) => {
         event.preventDefault();
-        const response = await fetch('/api/auth/sign-in/email', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(Object.fromEntries(new FormData(form))) });
-        if (response.ok) window.location.href = new URLSearchParams(window.location.search).get('redirect') || '/';
-        else showToast('Unable to sign in. Check your credentials and try again.');
+        const response = await fetch('/api/auth/sign-in/email', { method: 'POST', headers: { 'content-type': 'application/json', 'x-captcha-response': form.querySelector('[data-turnstile-token]')?.value || '' }, body: JSON.stringify(Object.fromEntries(new FormData(form))) });
+        const result = await response.json().catch(() => ({}));
+        const redirect = new URLSearchParams(window.location.search).get('redirect') || '/';
+        if (response.ok && result.twoFactorRedirect) window.location.href = `/two-factor?redirect=${encodeURIComponent(redirect)}`;
+        else if (response.ok) window.location.href = redirect;
+        else showToast(result.message || 'Unable to sign in. Check your credentials and try again.');
       });
     </script>
   </body>

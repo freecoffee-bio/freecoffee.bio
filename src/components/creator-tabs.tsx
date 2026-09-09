@@ -22,7 +22,7 @@ type Supporter = { name?: string | null; amount: number; message?: string | null
 function displayAmount(minor: number, currency: string) {
   return (minor / (currency === 'JPY' ? 1 : 100)).toFixed(currency === 'JPY' ? 0 : 2)
 }
-export type CurrentUser = { name: string; email: string }
+export type CurrentUser = { name: string; email: string; image?: string | null }
 export type Product = { id: string; name: string; description?: string | null; coverImageUrl?: string | null; price: number; currency: string }
 type CardCoverProps = { src?: string | null; alt: string; children?: React.ReactNode }
 type CardActionsProps = { onEdit: () => void; onDelete: () => void }

@@ -4,6 +4,7 @@ import { env } from 'cloudflare:workers';
 import { createDb } from '../db';
 import * as schema from '../db/schema';
 import { getAuthSecret } from '../lib/config';
+import { twoFactor } from 'better-auth/plugins/two-factor';
 
 export function createAuth() {
   return betterAuth({
@@ -19,9 +20,11 @@ export function createAuth() {
         session: schema.sessions,
         account: schema.accounts,
         verification: schema.verifications,
+        twoFactor: schema.twoFactors,
       },
     }),
     emailAndPassword: { enabled: true, autoSignIn: true },
+    plugins: [twoFactor({ issuer: 'FreeCoffee.bio' })],
     trustedOrigins: ['http://localhost:4321', 'https://freecoffee.bio'],
   });
 }

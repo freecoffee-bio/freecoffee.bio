@@ -12,16 +12,16 @@
     {
       "binding": "DB",
       "database_name": "freecoffee-db",
-      "database_id": "259543ed-7141-4593-9dbe-6fa69add0c53",
-      // "database_id": "local-development",
+      // "database_id": "3af86531-c0a9-4566-930e-89a6d9abd140",
+      "database_id": "local-development",
       "migrations_dir": "./migrations",
     },
   ],
   "kv_namespaces": [
     {
       "binding": "SESSION",
-      "id": "30988a5ded504374a7f61e26613f16e0",
-      // "id": "local-development",
+      // "id": "7483c42d3ce24e9f81f743b305ae7ab8",
+      "id": "local-development",
     },
   ],
   "send_email": [

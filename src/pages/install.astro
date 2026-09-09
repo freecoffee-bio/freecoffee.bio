@@ -4,6 +4,7 @@ import { hasRoot } from '../server/admin';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { ToastHost } from '../components/toast-host';
+import { Turnstile } from '../components/turnstile';
 
 if (await hasRoot()) return new Response('Not Found', { status: 404 });
 const siteUrl = Astro.url.origin;
@@ -23,6 +24,7 @@ const siteUrl = Astro.url.origin;
           <label class="block text-sm font-medium">Email<Input required name="email" type="email" autoComplete="email" className="mt-2 h-11 w-full" /></label>
           <label class="block text-sm font-medium">Password<Input required name="password" type="password" minLength={8} maxLength={128} autoComplete="new-password" className="mt-2 h-11 w-full" /><span class="mt-1 block text-xs text-muted-foreground">At least 8 characters.</span></label>
           <label class="block text-sm font-medium">Site URL<Input required name="siteUrl" type="url" maxLength={500} defaultValue={siteUrl} placeholder="https://your-domain.com" className="mt-2 h-11 w-full" /><span class="mt-1 block text-xs text-muted-foreground">Use the site origin only. Do not include an admin or callback path.</span></label>
+          <Turnstile client:load />
           <Button className="h-11 w-full" type="submit">Finish installation</Button>
         </form>
       </section>
@@ -32,7 +34,7 @@ const siteUrl = Astro.url.origin;
       const showToast = (message) => window.dispatchEvent(new CustomEvent('freecoffee:toast', { detail: { message, type: 'error' } }));
       form?.addEventListener('submit', async (event) => {
         event.preventDefault();
-        const response = await fetch('/api/install', { method: 'POST', body: new FormData(form) });
+        const response = await fetch('/api/install', { method: 'POST', headers: { 'x-captcha-response': form.querySelector('[data-turnstile-token]')?.value || '' }, body: new FormData(form) });
         if (response.redirected) window.location.href = response.url;
         else if (!response.ok) showToast((await response.json().catch(() => ({}))).error || 'Unable to complete installation.');
       });

@@ -47,6 +47,6 @@ const creator = workspace ? {
   </head>
   <body><script is:inline>try { if (localStorage.getItem('freecoffee-theme') === 'dark') document.documentElement.classList.add('dark'); } catch {}</script>
     <ToastHost client:load />
-    <CreatorPage client:load currentUser={currentUser ? { name: currentUser.name, email: currentUser.email } : null} creator={creator} isAdmin={isAdmin} adminPath={adminPath} />
+    <CreatorPage client:load currentUser={currentUser ? { name: currentUser.name, email: currentUser.email, image: currentUser.image } : null} creator={creator} isAdmin={isAdmin} adminPath={adminPath} />
   </body>
 </html>

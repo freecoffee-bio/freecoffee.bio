@@ -3,6 +3,7 @@ import '../styles/global.css';
 import { ToastHost } from '../components/toast-host';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
+import { Turnstile } from '../components/turnstile';
 ---
 <html lang="en">
   <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width" /><title>Create account — FreeCoffee.bio</title></head>
@@ -17,6 +18,7 @@ import { Input } from '../components/ui/input';
           <label class="block text-sm font-medium">Name<Input required name="name" maxLength={100} autoComplete="name" className="mt-2 h-11 w-full" /></label>
           <label class="block text-sm font-medium">Email<Input required name="email" type="email" autoComplete="email" className="mt-2 h-11 w-full" /></label>
           <label class="block text-sm font-medium">Password<Input required name="password" type="password" minLength={8} maxLength={128} autoComplete="new-password" className="mt-2 h-11 w-full" /><span class="mt-1 block text-xs text-muted-foreground">At least 8 characters.</span></label>
+          <Turnstile client:load />
           <Button className="h-11 w-full" type="submit">Create account</Button>
 
         </form>
@@ -28,7 +30,7 @@ import { Input } from '../components/ui/input';
       const showToast = (message) => window.dispatchEvent(new CustomEvent('freecoffee:toast', { detail: { message, type: 'error' } }));
       form?.addEventListener('submit', async (event) => {
         event.preventDefault();
-        const response = await fetch('/api/auth/sign-up/email', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(Object.fromEntries(new FormData(form))) });
+        const response = await fetch('/api/auth/sign-up/email', { method: 'POST', headers: { 'content-type': 'application/json', 'x-captcha-response': form.querySelector('[data-turnstile-token]')?.value || '' }, body: JSON.stringify(Object.fromEntries(new FormData(form))) });
         if (response.ok) window.location.href = '/';
         else { const result = await response.json().catch(() => ({})); showToast(result.message || 'Unable to create account. Please check your details.'); }
       });

@@ -376,11 +376,34 @@ CREATE TABLE `user` (
 	`email` text NOT NULL,
 	`email_verified` integer DEFAULT false NOT NULL,
 	`image` text,
+	`two_factor_enabled` integer DEFAULT false NOT NULL,
 	`created_at` integer NOT NULL,
 	`updated_at` integer NOT NULL
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `user_email_unique` ON `user` (`email`);--> statement-breakpoint
+CREATE TABLE `two_factor` (
+	`id` text PRIMARY KEY NOT NULL,
+	`secret` text NOT NULL,
+	`backup_codes` text NOT NULL,
+	`user_id` text NOT NULL,
+	`verified` integer DEFAULT true NOT NULL,
+	`failed_verification_count` integer DEFAULT 0 NOT NULL,
+	`locked_until` integer,
+	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `two_factor_user_id_unique` ON `two_factor` (`user_id`);--> statement-breakpoint
+CREATE INDEX `two_factor_secret_idx` ON `two_factor` (`secret`);--> statement-breakpoint
+CREATE INDEX `two_factor_user_id_idx` ON `two_factor` (`user_id`);--> statement-breakpoint
+CREATE TABLE `security_settings` (
+	`id` integer PRIMARY KEY NOT NULL,
+	`turnstile_enabled` integer DEFAULT false NOT NULL,
+	`turnstile_site_key` text DEFAULT '' NOT NULL,
+	`turnstile_secret_key` text DEFAULT '' NOT NULL,
+	`updated_at` integer NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE `verification` (
 	`id` text PRIMARY KEY NOT NULL,
 	`identifier` text NOT NULL,

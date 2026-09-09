@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 
-import { ExternalLink, GitBranch, Globe, Moon, Share2, Sun } from 'lucide-react'
+import { ChevronDown, ExternalLink, GitBranch, Globe, LogOut, Moon, Package, ShieldCheck, Share2, Sun, UserRound } from 'lucide-react'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { AboutSupportPanel, AboutTab, GalleryTab, PostsTab, ShopTab } from '@/components/creator-tabs'
 import type { Creator, CurrentUser } from '@/components/creator-tabs'
 
@@ -23,13 +24,12 @@ type CreatorPageProps = {
 export function CreatorPage({ currentUser, creator = { name: 'Creator', handle: 'creator', showSupport: true, showShop: true, products: [] }, isAdmin = false, adminPath = 'admin' }: CreatorPageProps) {
   const [tab, setTab] = useState('About')
   const [darkMode, setDarkMode] = useState(false)
-  const [hydrated, setHydrated] = useState(false)
+
 
   useEffect(() => {
     const dark = document.documentElement.classList.contains('dark')
     setDarkMode(dark)
     setTab(tabFromHash(window.location.hash))
-    setHydrated(true)
 
     function syncTab() {
       setTab(tabFromHash(window.location.hash))
@@ -54,13 +54,13 @@ export function CreatorPage({ currentUser, creator = { name: 'Creator', handle: 
   }
 
   return (
-    <main className={`w-screen min-h-screen bg-muted/30 ${hydrated ? '' : 'invisible'}`} aria-hidden={!hydrated}>
+    <main className="min-h-screen w-screen bg-muted/30">
       <header className="border-b bg-background">
         <div className="mx-auto flex min-h-16 max-w-5xl items-center justify-between px-4">
           <a href="/" className="inline-flex" aria-label="FreeCoffee home"><img src="/logo.png" alt="FreeCoffee.bio" className="h-10 w-auto" /></a>
-          <nav className="flex items-center gap-3 text-sm text-muted-foreground">
-            {currentUser ? <><a className="hover:text-foreground" href="/orders">My orders</a><button className="hover:text-foreground" type="button" onClick={(event) => { const button = event.currentTarget; button.disabled = true; button.textContent = 'Signing out…'; window.location.href = '/api/auth/logout' }}>Sign out</button></> : <a className="hover:text-foreground" href="/login">Sign in</a>}
-            <Button asChild size="sm"><a href="https://freecoffee.bio/" target="_blank" rel="noreferrer">Create your page <ExternalLink className="size-4" data-icon="inline-end" /></a></Button>
+          <nav className="flex items-center gap-2 text-sm text-muted-foreground">
+            {currentUser ? <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="gap-1 px-1" aria-label="Open account menu"><Avatar size="sm" className="size-5"><AvatarImage src={currentUser.image ?? undefined} alt="" /><AvatarFallback className="text-[10px]">{(currentUser.name || currentUser.email).charAt(0).toUpperCase()}</AvatarFallback></Avatar><span className="max-w-28 truncate">{currentUser.name || currentUser.email}</span><ChevronDown data-icon="inline-end" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-52"><DropdownMenuLabel className="flex flex-col gap-0.5"><span className="truncate text-foreground">{currentUser.name || currentUser.email}</span><span className="truncate font-normal">{currentUser.email}</span></DropdownMenuLabel><DropdownMenuSeparator /><DropdownMenuGroup><DropdownMenuItem asChild><a href="/profile"><UserRound />Profile</a></DropdownMenuItem><DropdownMenuItem asChild><a href="/orders"><Package />My orders</a></DropdownMenuItem><DropdownMenuItem asChild><a href="/account"><ShieldCheck />Account security</a></DropdownMenuItem></DropdownMenuGroup><DropdownMenuSeparator /><DropdownMenuItem variant="destructive" onSelect={() => { window.location.href = '/api/auth/logout' }}><LogOut />Sign out</DropdownMenuItem></DropdownMenuContent></DropdownMenu> : <a className="hover:text-foreground" href="/login">Sign in</a>}
+            <Button asChild size="sm"><a href="https://freecoffee.bio/" target="_blank" rel="noreferrer">Create your page <ExternalLink data-icon="inline-end" /></a></Button>
           </nav>
         </div>
       </header>
@@ -68,7 +68,7 @@ export function CreatorPage({ currentUser, creator = { name: 'Creator', handle: 
       <section className="border-b bg-background">
         <div className="h-40 bg-(--brand-soft) sm:h-52" />
         <div className="mx-auto grid max-w-5xl gap-5 px-4 pb-7 pt-5 sm:grid-cols-[112px_1fr_auto] sm:items-end sm:gap-6 sm:pt-6">
-          <div className="-mt-14 grid size-24 place-items-center overflow-hidden rounded-full border-8 border-background bg-primary text-4xl font-semibold text-primary-foreground shadow sm:size-28">{creator.image ? <img src={creator.image} alt="" className="size-full object-cover" /> : creator.name.charAt(0).toUpperCase()}</div>
+          <Avatar className="-mt-14 size-24 border-8 border-background bg-primary text-4xl font-semibold text-primary-foreground shadow sm:size-28"><AvatarImage src={creator.image ?? undefined} alt={`${creator.name} profile photo`} /><AvatarFallback className="bg-primary text-4xl font-semibold text-primary-foreground">{creator.name.charAt(0).toUpperCase()}</AvatarFallback></Avatar>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2"><h1 className="text-3xl font-semibold tracking-tight">{creator.name}</h1><span className="rounded-full bg-primary/10 px-2 py-1 text-xs text-primary">Creator</span></div>
             <p className="mt-1 font-mono text-xs text-muted-foreground">@{creator.handle}</p>

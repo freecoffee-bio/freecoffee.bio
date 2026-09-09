@@ -7,6 +7,7 @@ export const users = sqliteTable('user', {
   email: text('email').notNull().unique(),
   emailVerified: integer('email_verified', { mode: 'boolean' }).notNull().default(false),
   image: text('image'),
+  twoFactorEnabled: integer('two_factor_enabled', { mode: 'boolean' }).notNull().default(false),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
@@ -46,6 +47,24 @@ export const verifications = sqliteTable('verification', {
   expiresAt: integer('expires_at', { mode: 'timestamp' }).notNull(),
   createdAt: integer('created_at', { mode: 'timestamp' }),
   updatedAt: integer('updated_at', { mode: 'timestamp' }),
+});
+
+export const twoFactors = sqliteTable('two_factor', {
+  id: text('id').primaryKey(),
+  secret: text('secret').notNull(),
+  backupCodes: text('backup_codes').notNull(),
+  userId: text('user_id').notNull().unique().references(() => users.id, { onDelete: 'cascade' }),
+  verified: integer('verified', { mode: 'boolean' }).notNull().default(true),
+  failedVerificationCount: integer('failed_verification_count').notNull().default(0),
+  lockedUntil: integer('locked_until', { mode: 'timestamp' }),
+});
+
+export const securitySettings = sqliteTable('security_settings', {
+  id: integer('id').primaryKey(),
+  turnstileEnabled: integer('turnstile_enabled', { mode: 'boolean' }).notNull().default(false),
+  turnstileSiteKey: text('turnstile_site_key').notNull().default(''),
+  turnstileSecretKey: text('turnstile_secret_key').notNull().default(''),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
 
 export const adminBootstrap = sqliteTable('admin_bootstrap', {

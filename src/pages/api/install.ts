@@ -4,9 +4,11 @@ import { bindRoot, hasRoot } from '../../server/admin';
 import { ensureSiteSettings } from '../../server/site-settings';
 import { getAdminPath } from '../../lib/config';
 import { env } from 'cloudflare:workers';
+import { verifyTurnstile } from '../../server/security';
 
 export const POST: APIRoute = async ({ request, redirect }) => {
   if (await hasRoot()) return new Response('Not Found', { status: 404 });
+  await verifyTurnstile(request, env.DB);
 
   let input: { name?: unknown; email?: unknown; password?: unknown; siteUrl?: unknown } = {};
   const contentType = request.headers.get('content-type')?.toLowerCase() ?? '';

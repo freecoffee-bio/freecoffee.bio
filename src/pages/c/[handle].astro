@@ -48,7 +48,7 @@ if (!workspace) return new Response('Not Found', { status: 404 });
         supporters: workspace.supporters,
         paymentProviders: workspace.paymentProviders
       }}
-      currentUser={currentUser ? { name: currentUser.name, email: currentUser.email } : null}
+      currentUser={currentUser ? { name: currentUser.name, email: currentUser.email, image: currentUser.image } : null}
       isAdmin={isAdmin}
     />
   </body>

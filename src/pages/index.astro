@@ -34,6 +34,11 @@ const creator = workspace ? {
   supporters: workspace.supporters,
   paymentProviders: workspace.paymentProviders,
 } : undefined;
+const title = creator ? `${creator.name} — FreeCoffee.bio` : 'FreeCoffee.bio';
+const description = creator?.bio || (creator ? `Support ${creator.name} on FreeCoffee.bio.` : 'Support independent creators directly with FreeCoffee.bio.');
+const canonicalUrl = Astro.url.href;
+const imageUrl = creator?.image ? new URL(creator.image, Astro.url.origin).href : null;
+const analyticsCode = workspace?.page?.analyticsCode;
 ---
 
 <html lang="en">
@@ -41,9 +46,21 @@ const creator = workspace ? {
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width" />
     <link rel="preload" href={geistLatinFont} as="font" type="font/woff2" crossorigin />
-    <meta name="description" content={creator?.bio || (creator ? `Support ${creator.name} on FreeCoffee.bio.` : 'Support independent creators directly with FreeCoffee.bio.')} />
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonicalUrl} />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:site_name" content={creator?.name || 'FreeCoffee.bio'} />
+    {imageUrl && <meta property="og:image" content={imageUrl} />}
+    <meta name="twitter:card" content={imageUrl ? 'summary_large_image' : 'summary'} />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    {imageUrl && <meta name="twitter:image" content={imageUrl} />}
     <link rel="icon" type="image/png" href="/icon.png" />
-    <title>{creator ? `${creator.name} — FreeCoffee.bio` : 'FreeCoffee.bio'}</title>
+    {analyticsCode && <Fragment set:html={analyticsCode} />}
+    <title>{title}</title>
   </head>
   <body><script is:inline>try { if (localStorage.getItem('freecoffee-theme') === 'dark') document.documentElement.classList.add('dark'); } catch {}</script>
     <ToastHost client:load />

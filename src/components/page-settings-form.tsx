@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from 'react'
 
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
+
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Field, FieldDescription, FieldGroup, FieldLabel, FieldSeparator, FieldSet, FieldLegend } from '@/components/ui/field'
@@ -19,6 +21,24 @@ type PageSettings = {
   supportGoalAmount: number | null
   supportGoalDescription: string | null
   terms: string | null
+  analyticsCode: string | null
+}
+
+type AnalyticsMode = 'google' | 'custom'
+
+function googleAnalyticsCode(id: string) {
+  return `<script async src="https://www.googletagmanager.com/gtag/js?id=${id}"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){ dataLayer.push(arguments); }
+  gtag('js', new Date());
+  gtag('config', '${id}');
+</script>`
+}
+
+function measurementIdFromCode(code: string | null | undefined) {
+  const match = code?.match(/googletagmanager\.com\/gtag\/js\?id=(G-[A-Z0-9-]+)/i)
+  return match?.[1] ?? ''
 }
 
 type Toggles = {
@@ -36,10 +56,19 @@ export function PageSettingsForm({ displayName, currency, page }: { displayName:
     supportGoalEnabled: page?.supportGoalEnabled ?? false,
   })
   const [saving, setSaving] = useState(false)
+  const initialMeasurementId = measurementIdFromCode(page?.analyticsCode)
+  const [analyticsMode, setAnalyticsMode] = useState<AnalyticsMode>(initialMeasurementId || !page?.analyticsCode ? 'google' : 'custom')
+  const [measurementId, setMeasurementId] = useState(initialMeasurementId)
+  const [analyticsCode, setAnalyticsCode] = useState(page?.analyticsCode ?? '')
   const divisor = currency === 'JPY' ? 1 : 100
 
   function setToggle(name: keyof Toggles, checked: boolean) {
     setToggles((current) => ({ ...current, [name]: checked }))
+  }
+
+  function changeAnalyticsMode(mode: AnalyticsMode) {
+    setAnalyticsMode(mode)
+    if (mode === 'custom' && !analyticsCode.trim()) setAnalyticsCode(googleAnalyticsCode(measurementId || 'G-XXXXXXXXXX'))
   }
 
   async function save(event: FormEvent<HTMLFormElement>) {
@@ -65,6 +94,7 @@ export function PageSettingsForm({ displayName, currency, page }: { displayName:
           supportGoalAmount: String(data.get('supportGoalAmount')),
           supportGoalDescription: data.get('supportGoalDescription'),
           terms: data.get('terms'),
+          analyticsCode: analyticsMode === 'google' ? (measurementId.trim() ? googleAnalyticsCode(measurementId.trim()) : '') : analyticsCode,
         }),
       })
       const result = await response.json().catch(() => ({})) as { error?: string }
@@ -115,6 +145,19 @@ export function PageSettingsForm({ displayName, currency, page }: { displayName:
         </FieldGroup>
       </FieldSet>
       <Field><FieldLabel htmlFor="page-terms">Terms</FieldLabel><Textarea id="page-terms" name="terms" rows={5} defaultValue={page?.terms ?? ''} /></Field>
+      <FieldSet>
+        <FieldLegend>Analytics</FieldLegend>
+        <FieldDescription>Add tracking code to the public homepage, posts, and shop pages.</FieldDescription>
+        <FieldGroup>
+          <Field>
+            <FieldLabel htmlFor="analytics-mode">Provider</FieldLabel>
+            <NativeSelect id="analytics-mode" className="w-full [&_select]:h-11.25" value={analyticsMode} onChange={(event) => changeAnalyticsMode(event.target.value as AnalyticsMode)}>
+              <NativeSelectOption value="google">Google Analytics</NativeSelectOption><NativeSelectOption value="custom">Insert code</NativeSelectOption>
+            </NativeSelect>
+          </Field>
+          {analyticsMode === 'google' ? <Field><FieldLabel htmlFor="google-analytics-id">Google Analytics ID</FieldLabel><Input id="google-analytics-id" value={measurementId} onChange={(event) => setMeasurementId(event.target.value)} placeholder="G-XXXXXXXXXX" /><FieldDescription>Leave blank to disable analytics.</FieldDescription></Field> : <Field><FieldLabel htmlFor="analytics-code">Code inserted into &lt;head&gt;</FieldLabel><Textarea id="analytics-code" value={analyticsCode} onChange={(event) => setAnalyticsCode(event.target.value)} rows={10} spellCheck={false} className="font-mono text-xs" /><FieldDescription>Leave blank to disable analytics. This code runs for public-site visitors.</FieldDescription></Field>}
+        </FieldGroup>
+      </FieldSet>
       <Button className="w-full sm:w-auto" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Save page settings'}</Button>
     </FieldGroup>
   </form>

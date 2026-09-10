@@ -135,6 +135,7 @@ export const creatorPageSettings = sqliteTable('creator_page_settings', {
   supportGoalAmount: integer('support_goal_amount'),
   supportGoalDescription: text('support_goal_description'),
   terms: text('terms'),
+  analyticsCode: text('analytics_code'),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
 

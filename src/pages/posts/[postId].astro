@@ -16,7 +16,7 @@ const post = workspace.posts.find((item) => item.id === postId);
 if (!post) return new Response('Not Found', { status: 404 });
 const publishedLabel = post.publishedAt ? new Date(post.publishedAt).toLocaleDateString() : (post.status === 'draft' ? 'Draft' : '');
 ---
-<PublicPage title={post.title} description={post.excerpt || post.title} brandName={workspace.creator.displayName} backHref="/#posts" backLabel="Back to posts">
+<PublicPage title={post.title} description={post.excerpt || post.title} brandName={workspace.creator.displayName} ogType="article" image={post.coverImageUrl} analyticsCode={workspace.page?.analyticsCode} backHref="/#posts" backLabel="Back to posts">
   <article class="mx-auto max-w-5xl px-4 py-6 sm:py-8">
     <section class="overflow-hidden rounded-xl border bg-card shadow-sm">
       {post.coverImageUrl ? (

@@ -11,12 +11,17 @@ type Props = {
   backHref?: string
   backLabel?: string
   brandName?: string
+  ogType?: 'article' | 'product' | 'website'
+  image?: string | null
+  analyticsCode?: string | null
 }
 
-const { title, description, backHref = '/', backLabel = 'Back to page', brandName: brandNameProp } = Astro.props;
+const { title, description, backHref = '/', backLabel = 'Back to page', brandName: brandNameProp, ogType = 'website', image, analyticsCode } = Astro.props;
 const workspace = brandNameProp ? null : await getDefaultPublicCreator();
 const brandName = brandNameProp ?? workspace?.creator.displayName ?? 'FreeCoffee.bio';
 const pageTitle = title.includes(brandName) ? title : `${title} — ${brandName}`;
+const canonicalUrl = Astro.url.href;
+const imageUrl = image ? new URL(image, Astro.url.origin).href : null;
 ---
 <html lang="en">
   <head>
@@ -24,7 +29,19 @@ const pageTitle = title.includes(brandName) ? title : `${title} — ${brandName}
     <meta name="viewport" content="width=device-width" />
     <link rel="preload" href={geistLatinFont} as="font" type="font/woff2" crossorigin />
     {description && <meta name="description" content={description} />}
+    <link rel="canonical" href={canonicalUrl} />
+    <meta property="og:type" content={ogType} />
+    <meta property="og:title" content={pageTitle} />
+    {description && <meta property="og:description" content={description} />}
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:site_name" content={brandName} />
+    {imageUrl && <meta property="og:image" content={imageUrl} />}
+    <meta name="twitter:card" content={imageUrl ? 'summary_large_image' : 'summary'} />
+    <meta name="twitter:title" content={pageTitle} />
+    {description && <meta name="twitter:description" content={description} />}
+    {imageUrl && <meta name="twitter:image" content={imageUrl} />}
     <link rel="icon" type="image/png" href="/icon.png" />
+    {analyticsCode && <Fragment set:html={analyticsCode} />}
     <title>{pageTitle}</title>
   </head>
   <body>

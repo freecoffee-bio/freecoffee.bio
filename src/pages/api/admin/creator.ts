@@ -31,11 +31,13 @@ export const POST: APIRoute = async ({ request }) => {
     const currency = (await getSiteSettings()).currency;
     const defaultSupportAmount = typeof body.defaultSupportAmount === 'string' ? amountToMinor(body.defaultSupportAmount, currency) : undefined;
     const supportGoalAmount = typeof body.supportGoalAmount === 'string' ? amountToMinor(body.supportGoalAmount, currency) : undefined;
-    if (typeof body.themeColor === 'string' || typeof body.welcomeMessage === 'string' || typeof body.terms === 'string' || defaultSupportAmount !== undefined || typeof body.allowAnonymous === 'boolean' || typeof body.supportGoalEnabled === 'boolean' || typeof body.supportGoalTitle === 'string' || supportGoalAmount !== undefined || typeof body.supportGoalDescription === 'string') {
+    if (typeof body.themeColor === 'string' || typeof body.welcomeMessage === 'string' || typeof body.terms === 'string' || typeof body.analyticsCode === 'string' || defaultSupportAmount !== undefined || typeof body.allowAnonymous === 'boolean' || typeof body.supportGoalEnabled === 'boolean' || typeof body.supportGoalTitle === 'string' || supportGoalAmount !== undefined || typeof body.supportGoalDescription === 'string') {
+      if (typeof body.analyticsCode === 'string' && body.analyticsCode.length > 20_000) throw new Error('Analytics code must be 20,000 characters or fewer.');
       await updatePageSettings(user, {
         themeColor: typeof body.themeColor === 'string' ? body.themeColor : undefined,
         welcomeMessage: typeof body.welcomeMessage === 'string' ? body.welcomeMessage : undefined,
         terms: typeof body.terms === 'string' ? body.terms : undefined,
+        analyticsCode: typeof body.analyticsCode === 'string' ? body.analyticsCode.trim() || null : undefined,
         defaultSupportAmount: defaultSupportAmount !== undefined && defaultSupportAmount > 0 ? defaultSupportAmount : undefined,
         allowAnonymous: typeof body.allowAnonymous === 'boolean' ? body.allowAnonymous : undefined,
         showSupport: typeof body.showSupport === 'boolean' ? body.showSupport : undefined,

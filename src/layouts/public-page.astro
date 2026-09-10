@@ -1,0 +1,57 @@
+---
+import '../styles/global.css';
+import geistLatinFont from '@fontsource-variable/geist/files/geist-latin-wght-normal.woff2';
+import { ArrowLeft, Coffee } from 'lucide-react';
+import { ToastHost } from '../components/toast-host';
+import { getDefaultPublicCreator } from '../server/creator';
+
+type Props = {
+  title: string
+  description?: string
+  backHref?: string
+  backLabel?: string
+  brandName?: string
+}
+
+const { title, description, backHref = '/', backLabel = 'Back to page', brandName: brandNameProp } = Astro.props;
+const workspace = brandNameProp ? null : await getDefaultPublicCreator();
+const brandName = brandNameProp ?? workspace?.creator.displayName ?? 'FreeCoffee.bio';
+const pageTitle = title.includes(brandName) ? title : `${title} — ${brandName}`;
+---
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <link rel="preload" href={geistLatinFont} as="font" type="font/woff2" crossorigin />
+    {description && <meta name="description" content={description} />}
+    <link rel="icon" type="image/png" href="/icon.png" />
+    <title>{pageTitle}</title>
+  </head>
+  <body>
+    <script is:inline>try { if (localStorage.getItem('freecoffee-theme') === 'dark') document.documentElement.classList.add('dark'); } catch {}</script>
+    <ToastHost client:load />
+    <main class="min-h-screen bg-muted/30 text-foreground">
+      <header class="border-b bg-background">
+        <div class="mx-auto flex min-h-16 max-w-5xl items-center justify-between gap-4 px-4">
+          <a href="/" class="flex items-center gap-2 font-semibold tracking-tight">
+            <span class="grid size-8 place-items-center rounded-lg bg-primary text-primary-foreground"><Coffee className="size-4" /></span>
+            {brandName}
+          </a>
+          <a href={backHref} class="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4" /> {backLabel}</a>
+        </div>
+      </header>
+
+      <div class="min-h-[90vh]">
+        <slot />
+      </div>
+
+      <footer class="border-t bg-background">
+        <div class="mx-auto flex max-w-5xl flex-wrap justify-between gap-3 px-4 py-5 font-mono text-[14px] text-muted-foreground">
+          <a href="/">{brandName}</a>
+          <span>Creator-owned support, made simple.</span>
+          <a href="/privacy" class="hover:text-foreground">Privacy</a>
+        </div>
+      </footer>
+    </main>
+  </body>
+</html>

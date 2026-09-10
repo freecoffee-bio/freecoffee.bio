@@ -1,26 +1,7 @@
 ---
-import '../styles/global.css';
-import geistLatinFont from '@fontsource-variable/geist/files/geist-latin-wght-normal.woff2';
-import { ArrowLeft } from 'lucide-react';
+import PublicPage from '../layouts/public-page.astro';
 ---
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width" />
-    <link rel="preload" href={geistLatinFont} as="font" type="font/woff2" crossorigin />
-    <meta name="description" content="Privacy information for FreeCoffee.bio." />
-    <link rel="icon" type="image/png" href="/icon.png" />
-    <title>Privacy — FreeCoffee.bio</title>
-  </head>
-  <body><script is:inline>try { if (localStorage.getItem('freecoffee-theme') === 'dark') document.documentElement.classList.add('dark'); } catch {}</script>
-    <main class="min-h-screen bg-muted/30 text-foreground">
-      <header class="border-b bg-background">
-        <div class="mx-auto flex min-h-16 max-w-5xl items-center justify-between px-4">
-          <a href="/" class="inline-flex" aria-label="FreeCoffee home"><img src="/logo.png" alt="FreeCoffee.bio" class="h-10 w-auto" /></a>
-          <a href="/" class="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4" /> Return home</a>
-        </div>
-      </header>
-
+<PublicPage title="Privacy" description="Privacy information for FreeCoffee.bio." backLabel="Return home">
       <article class="mx-auto max-w-5xl px-4 py-6 sm:py-8">
         <section class="rounded-xl border bg-card p-5 shadow-sm sm:p-8">
           <p class="font-mono text-xs uppercase tracking-[0.12em] text-primary">FreeCoffee.bio</p>
@@ -88,14 +69,4 @@ import { ArrowLeft } from 'lucide-react';
           </div>
         </section>
       </article>
-
-      <footer class="border-t bg-background">
-        <div class="mx-auto flex max-w-5xl flex-wrap justify-between gap-3 px-4 py-5 font-mono text-[14px] text-muted-foreground">
-          <span>FreeCoffee<span class="text-primary">.bio</span></span>
-          <span>Creator-owned support, made simple.</span>
-          <a href="/privacy" class="hover:text-foreground">Privacy</a>
-        </div>
-      </footer>
-    </main>
-  </body>
-</html>
+</PublicPage>

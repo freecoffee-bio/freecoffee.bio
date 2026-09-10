@@ -1,0 +1,42 @@
+---
+import PublicPage from '../../layouts/public-page.astro';
+import { FileText } from 'lucide-react';
+import { getDefaultPublicCreator } from '../../server/creator';
+import { getCurrentUser } from '../../server/session';
+import { isRoot } from '../../server/admin';
+import { PostComments } from '../../components/post-comments';
+
+const postId = Astro.params.postId;
+if (!postId) return new Response('Not Found', { status: 404 });
+const currentUser = await getCurrentUser(Astro.request);
+const isAdmin = currentUser ? await isRoot(currentUser.id) : false;
+const workspace = await getDefaultPublicCreator(isAdmin);
+if (!workspace) return new Response('Not Found', { status: 404 });
+const post = workspace.posts.find((item) => item.id === postId);
+if (!post) return new Response('Not Found', { status: 404 });
+const publishedLabel = post.publishedAt ? new Date(post.publishedAt).toLocaleDateString() : (post.status === 'draft' ? 'Draft' : '');
+---
+<PublicPage title={post.title} description={post.excerpt || post.title} brandName={workspace.creator.displayName} backHref="/#posts" backLabel="Back to posts">
+  <article class="mx-auto max-w-5xl px-4 py-6 sm:py-8">
+    <section class="overflow-hidden rounded-xl border bg-card shadow-sm">
+      {post.coverImageUrl ? (
+        <div class="grid aspect-square place-items-center bg-muted sm:aspect-[16/9]">
+          <img src={post.coverImageUrl} alt={`${post.title} cover`} class="size-full object-cover" />
+        </div>
+      ) : (
+        <div class="grid aspect-[16/9] place-items-center bg-muted text-muted-foreground">
+          <FileText className="size-16 stroke-[1.4]" />
+        </div>
+      )}
+      <div class="border-t p-5 sm:p-7">
+        <p class="font-mono text-xs uppercase tracking-[0.12em] text-primary">Post{publishedLabel ? ` · ${publishedLabel}` : ''}</p>
+        <h1 class="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">{post.title}</h1>
+        {post.excerpt && <p class="mt-4 text-base leading-7 text-muted-foreground">{post.excerpt}</p>}
+        <div class="mt-6 whitespace-pre-wrap text-base leading-8">{post.body}</div>
+      </div>
+    </section>
+    <div class="mt-5">
+      <PostComments client:load postId={post.id} currentUser={currentUser ? { name: currentUser.name, email: currentUser.email } : null} />
+    </div>
+  </article>
+</PublicPage>

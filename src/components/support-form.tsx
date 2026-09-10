@@ -15,6 +15,7 @@ import { showToast } from '@/lib/toast'
 
 type SupportFormProps = {
   creator: { name: string; allowAnonymous?: boolean; paymentProviders?: { stripe: boolean; paypal: boolean } }
+  currentUser?: { name: string; email: string } | null
   defaultSupportAmount?: number
   currency?: string
   onSubmitted: (email: string, amount: number) => void
@@ -31,7 +32,7 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>
 
-export function SupportForm({ creator, defaultSupportAmount = 500, currency = 'USD', onSubmitted }: SupportFormProps) {
+export function SupportForm({ creator, currentUser, defaultSupportAmount = 500, currency = 'USD', onSubmitted }: SupportFormProps) {
   const decimals = currency === 'JPY' ? 0 : 2
   const factor = 10 ** decimals
   const symbol = currency === 'USD' ? '$' : currency
@@ -43,8 +44,8 @@ export function SupportForm({ creator, defaultSupportAmount = 500, currency = 'U
     resolver: zodResolver(schema),
     defaultValues: {
       amount: String(defaultSupportAmount / factor),
-      email: '',
-      displayName: '',
+      email: currentUser?.email ?? '',
+      displayName: currentUser?.name ?? '',
       message: '',
       anonymous: false,
       provider: defaultProvider,

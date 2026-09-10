@@ -27,6 +27,7 @@ export const POST: APIRoute = async ({ request }) => {
       currency: settings.currency,
       provider: provider as PaymentProviderName,
       email,
+      supporterUserId: user?.id,
       displayName: typeof body.displayName === 'string' ? body.displayName : undefined,
       message: typeof body.message === 'string' ? body.message : undefined,
       anonymous: body.anonymous === true,

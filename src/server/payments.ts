@@ -59,7 +59,7 @@ async function createPayPalCheckout(input: PaymentInput): Promise<PaymentCheckou
   return { providerPaymentId: result.id, url: approve, requestPayload: JSON.stringify(requestPayload) };
 }
 
-export async function createSupportCheckout(input: { amount: number; currency: Currency; provider: PaymentProviderName; email: string; displayName?: string; message?: string; anonymous?: boolean; returnUrl: string; cancelUrl: string }) {
+export async function createSupportCheckout(input: { amount: number; currency: Currency; provider: PaymentProviderName; email: string; supporterUserId?: string; displayName?: string; message?: string; anonymous?: boolean; returnUrl: string; cancelUrl: string }) {
   const db = createDb(env.DB);
   const [creator] = await db.select().from(creatorProfiles).orderBy(asc(creatorProfiles.id)).limit(1);
   if (!creator) throw new Error('Creator page not found.');
@@ -73,7 +73,7 @@ export async function createSupportCheckout(input: { amount: number; currency: C
   if (!/^\S+@\S+\.\S+$/.test(input.email) || input.email.length > 320) throw new Error('Enter a valid receipt email.');
   const id = crypto.randomUUID();
   const now = new Date();
-  await db.insert(supportTransactions).values({ id, creatorId: creator.id, supporterEmail: input.email.toLowerCase(), amount: input.amount, currency: input.currency.toUpperCase(), status: 'pending', message: input.message?.slice(0, 240) || null, displayName: input.displayName?.slice(0, 100) || null, anonymous: input.anonymous === true, provider: input.provider, createdAt: now });
+  await db.insert(supportTransactions).values({ id, creatorId: creator.id, supporterUserId: input.supporterUserId ?? null, supporterEmail: input.email.toLowerCase(), amount: input.amount, currency: input.currency.toUpperCase(), status: 'pending', message: input.message?.slice(0, 240) || null, displayName: input.displayName?.slice(0, 100) || null, anonymous: input.anonymous === true, provider: input.provider, createdAt: now });
   await db.insert(paymentRecords).values({ id: crypto.randomUUID(), kind: 'support', referenceId: id, amount: input.amount, currency: input.currency.toUpperCase(), provider: input.provider, quotedAmount: input.amount, quotedCurrency: input.currency.toUpperCase(), status: 'pending', createdAt: now, updatedAt: now });
   try {
     const checkout = input.provider === 'stripe' ? await createStripeCheckout({ provider: input.provider, referenceId: id, amount: input.amount, currency: input.currency, description: `Support ${creator.displayName}`, returnUrl: input.returnUrl.replace('{REFERENCE_ID}', id), cancelUrl: input.cancelUrl }) : await createPayPalCheckout({ provider: input.provider, referenceId: id, amount: input.amount, currency: input.currency, description: `Support ${creator.displayName}`, returnUrl: input.returnUrl.replace('{REFERENCE_ID}', id), cancelUrl: input.cancelUrl });

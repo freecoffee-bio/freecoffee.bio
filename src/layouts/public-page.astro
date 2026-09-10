@@ -1,7 +1,7 @@
 ---
 import '../styles/global.css';
 import geistLatinFont from '@fontsource-variable/geist/files/geist-latin-wght-normal.woff2';
-import { ArrowLeft, Coffee } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { ToastHost } from '../components/toast-host';
 import { getDefaultPublicCreator } from '../server/creator';
 
@@ -33,10 +33,7 @@ const pageTitle = title.includes(brandName) ? title : `${title} — ${brandName}
     <main class="min-h-screen bg-muted/30 text-foreground">
       <header class="border-b bg-background">
         <div class="mx-auto flex min-h-16 max-w-5xl items-center justify-between gap-4 px-4">
-          <a href="/" class="flex items-center gap-2 font-semibold tracking-tight">
-            <span class="grid size-8 place-items-center rounded-lg bg-primary text-primary-foreground"><Coffee className="size-4" /></span>
-            {brandName}
-          </a>
+          <a href="/" class="inline-flex" aria-label="FreeCoffee home"><img src="/logo.png" alt="FreeCoffee.bio" class="h-10 w-auto" /></a>
           <a href={backHref} class="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4" /> {backLabel}</a>
         </div>
       </header>

@@ -5,6 +5,7 @@ import { createDb } from '../db';
 import * as schema from '../db/schema';
 import { getAuthSecret } from '../lib/config';
 import { twoFactor } from 'better-auth/plugins/two-factor';
+import { dispatchEmailNotification } from './notifications';
 
 export function createAuth() {
   return betterAuth({
@@ -23,7 +24,33 @@ export function createAuth() {
         twoFactor: schema.twoFactors,
       },
     }),
-    emailAndPassword: { enabled: true, autoSignIn: true },
+    appName: 'FreeCoffee.bio',
+    emailAndPassword: { enabled: true, autoSignIn: false, requireEmailVerification: true },
+    emailVerification: {
+      sendVerificationEmail: async ({ user, url, token }) => {
+        await dispatchEmailNotification({
+          recipient: user.email,
+          eventKey: 'email-verification',
+          referenceId: crypto.randomUUID(),
+          data: { siteName: 'FreeCoffee.bio', verificationUrl: url },
+        });
+      },
+      autoSignInAfterVerification: true,
+      sendOnSignIn: true,
+    },
+    user: {
+      changeEmail: {
+        enabled: true,
+        sendChangeEmailConfirmation: async ({ user, newEmail, url, token }) => {
+          await dispatchEmailNotification({
+            recipient: user.email,
+            eventKey: 'change-email-confirmation',
+            referenceId: crypto.randomUUID(),
+            data: { siteName: 'FreeCoffee.bio', newEmail, verificationUrl: url },
+          });
+        },
+      },
+    },
     plugins: [twoFactor({ issuer: 'FreeCoffee.bio' })],
     trustedOrigins: ['http://localhost:4321', 'https://freecoffee.bio'],
   });

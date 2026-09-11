@@ -69,7 +69,7 @@ export async function createSupportCheckout(input: { amount: number; currency: C
   const settings = await getPaymentSettings();
   if (input.provider === 'stripe' && (!settings?.stripeSecretKey || !settings.stripeWebhookSecret)) throw new Error('Stripe checkout and webhook credentials are not fully configured.');
   if (input.provider === 'paypal' && (!settings?.paypalClientId || !settings.paypalClientSecret || !settings.paypalWebhookId)) throw new Error('PayPal checkout and webhook credentials are not fully configured.');
-  if (!isCurrency(input.currency) || !Number.isSafeInteger(input.amount) || input.amount <= 0 || input.amount > 100000000) throw new Error('Support amount is invalid.');
+  if (!isCurrency(input.currency) || !Number.isSafeInteger(input.amount) || input.amount < (page?.minimumSupportAmount ?? 100) || input.amount > 100000000) throw new Error('Support amount is below the configured minimum.');
   if (!/^\S+@\S+\.\S+$/.test(input.email) || input.email.length > 320) throw new Error('Enter a valid receipt email.');
   const id = crypto.randomUUID();
   const now = new Date();

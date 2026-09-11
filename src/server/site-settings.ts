@@ -79,12 +79,15 @@ export async function updateSiteSettings(input: { siteUrl?: string; currency?: u
     const pageMigrations = [];
     for (const page of pageRows) {
       const defaultAmount = await convertCurrency(page.defaultSupportAmount, existing.currency, currency);
+      const minimumAmount = await convertCurrency(page.minimumSupportAmount, existing.currency, currency);
+      const suggestedAmounts = JSON.parse(page.suggestedSupportAmounts) as number[];
+      const convertedSuggestedAmounts = await Promise.all(suggestedAmounts.map((amount) => convertCurrency(amount, existing.currency, currency)));
       const goalAmount = page.supportGoalAmount ? await convertCurrency(page.supportGoalAmount, existing.currency, currency) : null;
-      pageMigrations.push({ page, defaultAmount, goalAmount });
+      pageMigrations.push({ page, defaultAmount, minimumAmount, suggestedAmounts: convertedSuggestedAmounts.map((amount) => amount.amount), goalAmount });
     }
     const migrationStatements = [
       ...productMigrations.map(({ product, converted }) => db.update(products).set({ price: converted.amount, currency, updatedAt: new Date() }).where(eq(products.id, product.id))),
-      ...pageMigrations.map(({ page, defaultAmount, goalAmount }) => db.update(creatorPageSettings).set({ defaultSupportAmount: defaultAmount.amount, supportGoalAmount: goalAmount?.amount ?? page.supportGoalAmount, updatedAt: new Date() }).where(eq(creatorPageSettings.creatorId, page.creatorId))),
+      ...pageMigrations.map(({ page, defaultAmount, minimumAmount, suggestedAmounts, goalAmount }) => db.update(creatorPageSettings).set({ defaultSupportAmount: defaultAmount.amount, minimumSupportAmount: minimumAmount.amount, suggestedSupportAmounts: JSON.stringify(suggestedAmounts), supportGoalAmount: goalAmount?.amount ?? page.supportGoalAmount, updatedAt: new Date() }).where(eq(creatorPageSettings.creatorId, page.creatorId))),
       db.update(siteSettings).set({ siteUrl, currency, taxRate, updatedAt: new Date() }).where(eq(siteSettings.id, 1)),
     ];
     await db.batch(migrationStatements as [typeof migrationStatements[0], ...typeof migrationStatements]);

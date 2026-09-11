@@ -17,6 +17,9 @@ type SupportFormProps = {
   creator: { name: string; allowAnonymous?: boolean; paymentProviders?: { stripe: boolean; paypal: boolean } }
   currentUser?: { name: string; email: string } | null
   defaultSupportAmount?: number
+  suggestedSupportAmounts?: string | null
+  minimumSupportAmount?: number
+  supportWording?: 'tip' | 'donate'
   currency?: string
   onSubmitted: (email: string, amount: number) => void
 }
@@ -32,10 +35,18 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>
 
-export function SupportForm({ creator, currentUser, defaultSupportAmount = 500, currency = 'USD', onSubmitted }: SupportFormProps) {
+export function SupportForm({ creator, currentUser, defaultSupportAmount = 500, suggestedSupportAmounts, minimumSupportAmount = 100, supportWording = 'donate', currency = 'USD', onSubmitted }: SupportFormProps) {
   const decimals = currency === 'JPY' ? 0 : 2
   const factor = 10 ** decimals
   const symbol = currency === 'USD' ? '$' : currency
+  const minimumAmount = minimumSupportAmount / factor
+  let quickAmounts = [300, 500, 1000]
+  try {
+    const parsed = JSON.parse(suggestedSupportAmounts ?? '')
+    if (Array.isArray(parsed) && parsed.length === 3 && parsed.every((value) => Number.isSafeInteger(value) && value > 0)) quickAmounts = parsed
+  } catch {}
+  const quickAmountValues = quickAmounts.map((value) => String(value / factor))
+  const supportLabel = supportWording === 'tip' ? 'Tip' : 'Donate'
   const providers = creator.paymentProviders ?? { stripe: false, paypal: false }
   const availableProviders = (['stripe', 'paypal'] as const).filter((provider) => providers[provider])
   const defaultProvider = availableProviders[0] ?? 'stripe'
@@ -56,7 +67,12 @@ export function SupportForm({ creator, currentUser, defaultSupportAmount = 500, 
 
   async function continueToEmail() {
     const valid = await form.trigger(['amount', 'displayName', 'message', 'anonymous'])
-    if (valid) setStep(2)
+    if (!valid) return
+    if (Number(form.getValues('amount')) < minimumAmount) {
+      form.setError('amount', { message: `Enter an amount of at least ${symbol} ${minimumAmount}.` })
+      return
+    }
+    setStep(2)
   }
 
   async function onSubmit(values: FormValues) {
@@ -80,11 +96,11 @@ export function SupportForm({ creator, currentUser, defaultSupportAmount = 500, 
       <div className="flex items-start justify-between gap-3"><div><p className="flex items-center gap-1.5 font-mono text-sm text-primary"><Coffee className="size-4" /> Buy me a coffee</p><h2 className="mt-2 text-2xl font-semibold tracking-tight">Support {creator.name}</h2></div><span className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-1 font-mono text-xs text-primary"><LockKeyhole className="size-4" /> secure</span></div>
       <div className="mt-5 grid grid-cols-2 rounded-full bg-muted p-1 text-center text-sm font-semibold"><span className="rounded-full bg-card px-4 py-2 shadow-sm">One-time</span><span className="flex items-center justify-center gap-1.5 px-4 py-2 text-muted-foreground">Monthly <Tooltip><TooltipTrigger asChild><button type="button" aria-label="Monthly support information" className="inline-flex size-4 items-center justify-center rounded-full hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"><Info className="size-3.5" /></button></TooltipTrigger><TooltipContent><p>Monthly support is not available yet.</p></TooltipContent></Tooltip></span></div>
       <FieldGroup className="mt-5">
-        <Controller name="amount" control={form.control} render={({ field, fieldState }) => <Field data-invalid={fieldState.invalid}><FieldLabel htmlFor="support-amount">Choose amount</FieldLabel><div className="grid grid-cols-3 gap-2">{['3', '5', '10'].map((value) => <Button key={value} type="button" variant={field.value === value ? 'outline' : 'secondary'} className={field.value === value ? 'border-foreground' : ''} onClick={() => field.onChange(value)}>{field.value === value && <span className="text-primary">✓</span>} {symbol} {value}</Button>)}</div><div className="relative mt-1"><span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-muted-foreground">{symbol}</span><Input {...field} id="support-amount" type="number" min="1" max="1000" step={decimals === 0 ? 1 : 0.01} className="pl-9" placeholder="Enter an amount" aria-invalid={fieldState.invalid} /></div>{fieldState.invalid && <FieldError errors={[fieldState.error]} />}</Field>} />
+        <Controller name="amount" control={form.control} render={({ field, fieldState }) => <Field data-invalid={fieldState.invalid}><FieldLabel htmlFor="support-amount">Choose amount</FieldLabel><div className="grid grid-cols-3 gap-2">{quickAmountValues.map((value) => <Button key={value} type="button" variant={field.value === value ? 'outline' : 'secondary'} className={field.value === value ? 'border-foreground' : ''} onClick={() => field.onChange(value)}>{field.value === value && <span className="text-primary">✓</span>} {symbol} {value}</Button>)}</div><div className="relative mt-1"><span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-muted-foreground">{symbol}</span><Input {...field} id="support-amount" type="number" min={minimumAmount} max="1000" step={decimals === 0 ? 1 : 0.01} className="pl-9" placeholder="Enter an amount" aria-invalid={fieldState.invalid} /></div>{fieldState.invalid && <FieldError errors={[fieldState.error]} />}</Field>} />
         <Controller name="displayName" control={form.control} render={({ field, fieldState }) => <Field data-invalid={fieldState.invalid}><FieldLabel htmlFor="support-name">Display name <span className="font-normal text-muted-foreground">optional</span></FieldLabel><Input {...field} id="support-name" disabled={form.watch('anonymous')} aria-invalid={fieldState.invalid} placeholder="Your name" />{fieldState.invalid && <FieldError errors={[fieldState.error]} />}</Field>} />
         <Controller name="message" control={form.control} render={({ field, fieldState }) => <Field data-invalid={fieldState.invalid}><FieldLabel htmlFor="support-message">Message <span className="font-normal text-muted-foreground">optional</span></FieldLabel><Textarea {...field} id="support-message" rows={3} maxLength={240} aria-invalid={fieldState.invalid} placeholder="Say something nice..." />{fieldState.invalid && <FieldError errors={[fieldState.error]} />}</Field>} />
         {creator.allowAnonymous !== false && <Controller name="anonymous" control={form.control} render={({ field }) => <Field><div className="flex items-center gap-2"><Checkbox id="support-anonymous" checked={field.value} onCheckedChange={field.onChange} /><FieldLabel htmlFor="support-anonymous" className="flex items-center gap-1.5 font-medium">Private message <Tooltip><TooltipTrigger asChild><button type="button" aria-label="Private message information" className="inline-flex size-4 items-center justify-center rounded-full text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"><Info className="size-3.5" /></button></TooltipTrigger><TooltipContent><p>Only the creator will see your message.</p></TooltipContent></Tooltip></FieldLabel></div></Field>} />}
-        <Button className="w-full" size="lg" type="button" onClick={() => void continueToEmail()}>Continue <Send className="size-4" data-icon="inline-end" /></Button>
+        <Button className="w-full" size="lg" type="button" onClick={() => void continueToEmail()}>{supportLabel} <Send className="size-4" data-icon="inline-end" /></Button>
       </FieldGroup>
     </> : <>
       <div className="flex items-center gap-2"><Button type="button" variant="ghost" size="icon" aria-label="Go back" onClick={() => setStep(1)}><ArrowLeft className="size-4" /></Button><h2 className="text-2xl font-semibold tracking-tight">Your email address</h2></div>

@@ -30,8 +30,9 @@ import { Turnstile } from '../components/turnstile';
       const showToast = (message) => window.dispatchEvent(new CustomEvent('freecoffee:toast', { detail: { message, type: 'error' } }));
       form?.addEventListener('submit', async (event) => {
         event.preventDefault();
-        const response = await fetch('/api/auth/sign-up/email', { method: 'POST', headers: { 'content-type': 'application/json', 'x-captcha-response': form.querySelector('[data-turnstile-token]')?.value || '' }, body: JSON.stringify(Object.fromEntries(new FormData(form))) });
-        if (response.ok) window.location.href = '/';
+        const data = Object.fromEntries(new FormData(form));
+        const response = await fetch('/api/auth/sign-up/email', { method: 'POST', headers: { 'content-type': 'application/json', 'x-captcha-response': form.querySelector('[data-turnstile-token]')?.value || '' }, body: JSON.stringify(data) });
+        if (response.ok) window.location.href = `/verify-email?email=${encodeURIComponent(String(data.email || ''))}`;
         else { const result = await response.json().catch(() => ({})); showToast(result.message || 'Unable to create account. Please check your details.'); }
       });
     </script>

@@ -47,11 +47,31 @@ CREATE TABLE `creator_crypto_wallets` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `creator_crypto_wallet_unique` ON `creator_crypto_wallets` (`creator_id`,`network`,`asset`);--> statement-breakpoint
+CREATE TABLE `creator_integrations` (
+	`id` text PRIMARY KEY NOT NULL,
+	`creator_id` integer NOT NULL,
+	`platform` text NOT NULL,
+	`enabled` integer DEFAULT true NOT NULL,
+	`button_text` text DEFAULT 'Support me on FreeCoffee' NOT NULL,
+	`theme` text DEFAULT 'light' NOT NULL,
+	`color` text DEFAULT '#72a4f2' NOT NULL,
+	`text_color` text DEFAULT '#172b4d' NOT NULL,
+	`button_type` text DEFAULT 'button' NOT NULL,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL,
+	FOREIGN KEY (`creator_id`) REFERENCES `creator_profiles`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `creator_integrations_creator_platform_unique` ON `creator_integrations` (`creator_id`,`platform`);--> statement-breakpoint
 CREATE TABLE `creator_page_settings` (
 	`creator_id` integer PRIMARY KEY NOT NULL,
 	`theme_color` text DEFAULT '#111111' NOT NULL,
 	`welcome_message` text,
 	`default_support_amount` integer DEFAULT 500 NOT NULL,
+	`suggested_support_amounts` text DEFAULT '[300,500,1000]' NOT NULL,
+	`minimum_support_amount` integer DEFAULT 100 NOT NULL,
+	`support_wording` text DEFAULT 'donate' NOT NULL,
+	`support_thank_you_message` text,
 	`allow_anonymous` integer DEFAULT true NOT NULL,
 	`show_support` integer DEFAULT true NOT NULL,
 	`show_shop` integer DEFAULT true NOT NULL,
@@ -60,6 +80,7 @@ CREATE TABLE `creator_page_settings` (
 	`support_goal_amount` integer,
 	`support_goal_description` text,
 	`terms` text,
+	`analytics_code` text,
 	`updated_at` integer NOT NULL,
 	FOREIGN KEY (`creator_id`) REFERENCES `creator_profiles`(`id`) ON UPDATE no action ON DELETE cascade
 );
@@ -84,6 +105,7 @@ CREATE TABLE `creator_profiles` (
 	`handle` text NOT NULL,
 	`display_name` text NOT NULL,
 	`bio` text,
+	`what_do` text,
 	`website` text,
 	`image` text,
 	`social_links` text,
@@ -312,6 +334,14 @@ CREATE TABLE `s3_storage_settings` (
 	`updated_at` integer NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE `security_settings` (
+	`id` integer PRIMARY KEY NOT NULL,
+	`turnstile_enabled` integer DEFAULT false NOT NULL,
+	`turnstile_site_key` text DEFAULT '' NOT NULL,
+	`turnstile_secret_key` text DEFAULT '' NOT NULL,
+	`updated_at` integer NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE `session` (
 	`id` text PRIMARY KEY NOT NULL,
 	`expires_at` integer NOT NULL,
@@ -370,18 +400,6 @@ CREATE TABLE `support_transactions` (
 CREATE INDEX `support_transactions_creator_id_idx` ON `support_transactions` (`creator_id`);--> statement-breakpoint
 CREATE INDEX `support_transactions_supporter_user_id_idx` ON `support_transactions` (`supporter_user_id`);--> statement-breakpoint
 CREATE INDEX `support_transactions_status_idx` ON `support_transactions` (`status`);--> statement-breakpoint
-CREATE TABLE `user` (
-	`id` text PRIMARY KEY NOT NULL,
-	`name` text NOT NULL,
-	`email` text NOT NULL,
-	`email_verified` integer DEFAULT false NOT NULL,
-	`image` text,
-	`two_factor_enabled` integer DEFAULT false NOT NULL,
-	`created_at` integer NOT NULL,
-	`updated_at` integer NOT NULL
-);
---> statement-breakpoint
-CREATE UNIQUE INDEX `user_email_unique` ON `user` (`email`);--> statement-breakpoint
 CREATE TABLE `two_factor` (
 	`id` text PRIMARY KEY NOT NULL,
 	`secret` text NOT NULL,
@@ -394,16 +412,18 @@ CREATE TABLE `two_factor` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `two_factor_user_id_unique` ON `two_factor` (`user_id`);--> statement-breakpoint
-CREATE INDEX `two_factor_secret_idx` ON `two_factor` (`secret`);--> statement-breakpoint
-CREATE INDEX `two_factor_user_id_idx` ON `two_factor` (`user_id`);--> statement-breakpoint
-CREATE TABLE `security_settings` (
-	`id` integer PRIMARY KEY NOT NULL,
-	`turnstile_enabled` integer DEFAULT false NOT NULL,
-	`turnstile_site_key` text DEFAULT '' NOT NULL,
-	`turnstile_secret_key` text DEFAULT '' NOT NULL,
+CREATE TABLE `user` (
+	`id` text PRIMARY KEY NOT NULL,
+	`name` text NOT NULL,
+	`email` text NOT NULL,
+	`email_verified` integer DEFAULT false NOT NULL,
+	`image` text,
+	`two_factor_enabled` integer DEFAULT false NOT NULL,
+	`created_at` integer NOT NULL,
 	`updated_at` integer NOT NULL
 );
 --> statement-breakpoint
+CREATE UNIQUE INDEX `user_email_unique` ON `user` (`email`);--> statement-breakpoint
 CREATE TABLE `verification` (
 	`id` text PRIMARY KEY NOT NULL,
 	`identifier` text NOT NULL,

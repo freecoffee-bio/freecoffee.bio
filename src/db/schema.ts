@@ -143,6 +143,20 @@ export const creatorPageSettings = sqliteTable('creator_page_settings', {
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
 
+export const creatorIntegrations = sqliteTable('creator_integrations', {
+  id: text('id').primaryKey(),
+  creatorId: integer('creator_id').notNull().references(() => creatorProfiles.id, { onDelete: 'cascade' }),
+  platform: text('platform').notNull(),
+  enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
+  buttonText: text('button_text').notNull().default('Support me on FreeCoffee'),
+  theme: text('theme').notNull().default('light'),
+  color: text('color').notNull().default('#72a4f2'),
+  textColor: text('text_color').notNull().default('#172b4d'),
+  buttonType: text('button_type').notNull().default('button'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+}, (table) => [uniqueIndex('creator_integrations_creator_platform_unique').on(table.creatorId, table.platform)]);
+
 export const creatorPaymentAccounts = sqliteTable('creator_payment_accounts', {
   id: text('id').primaryKey(),
   creatorId: integer('creator_id').notNull().references(() => creatorProfiles.id, { onDelete: 'cascade' }),

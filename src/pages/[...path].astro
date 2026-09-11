@@ -9,7 +9,7 @@ import { getRootUserId } from '../server/admin';
 import { requireRoot } from '../server/session';
 import { env } from 'cloudflare:workers';
 import { SiPaypal, SiStripe, SiTwitch, SiX, SiYoutube } from '@icons-pack/react-simple-icons';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, KeyRound, Trash2 } from 'lucide-react';
 import { AdminIcon } from '../components/admin-icon';
 import { ToastHost } from '../components/toast-host';
 
@@ -24,6 +24,8 @@ import { listNotificationDeliveries, listNotificationTemplates } from '../server
 import { AdminTabs } from '../components/admin-tabs';
 import { SocialLinksDialog } from '../components/social-links-dialog';
 import { ConnectedAccounts } from '../components/connected-accounts';
+import { ButtonsManager } from '../components/buttons-manager';
+import { listButtonIntegrations } from '../server/integrations';
 import { ShareDialog } from '../components/share-dialog';
 import { ShopStatusSelect } from '../components/shop-select';
 import { ShopProductsManager } from '../components/shop-products-manager';
@@ -59,6 +61,9 @@ const providerConfigured = {
 const adminPath = getAdminPath((env as unknown as { ADMIN_PATH?: string }).ADMIN_PATH);
 const currentPath = Astro.params.path ?? '';
 if (!currentPath.startsWith(adminPath)) return new Response('Not Found', { status: 404 });
+const isButtons = currentPath === `${adminPath}/buttons`;
+const publicSiteUrl = siteSettings.siteUrl?.trim() || '';
+if (isButtons && !publicSiteUrl) return new Response('Site URL is not configured.', { status: 500 });
 if (currentPath === `${adminPath}/gallery` || currentPath === `${adminPath}/posts`) return Astro.redirect(`/${adminPath}`);
 if (!(await getRootUserId())) return Astro.redirect('/install');
 let sessionUser;
@@ -84,7 +89,7 @@ if (orderFromFilter) orderQuery.set('from', orderFromFilter);
 if (orderToFilter) orderQuery.set('to', orderToFilter);
 orderQuery.set('tab', 'orders');
 const orderUrl = (page: number) => `?${new URLSearchParams([...orderQuery, ['page', String(page)]]).toString()}`;
-const [shopProducts, supports, creatorOrders, orderCount, supportSummary, orderSummary, paymentEventLog, mediaStorage, mediaContent, notificationTemplates, notificationDeliveriesLog] = await Promise.all([
+const [shopProducts, supports, creatorOrders, orderCount, supportSummary, orderSummary, paymentEventLog, mediaStorage, mediaContent, notificationTemplates, notificationDeliveriesLog, buttonIntegrations] = await Promise.all([
   db.select().from(products).where(eq(products.creatorId, workspace.creator.id)).orderBy(desc(products.createdAt)),
   db.select().from(supportTransactions).where(eq(supportTransactions.creatorId, workspace.creator.id)).orderBy(desc(supportTransactions.createdAt)),
   db.select().from(orders).where(orderWhere).orderBy(desc(orders.createdAt)).limit(orderPageSize).offset((orderPage - 1) * orderPageSize),
@@ -97,6 +102,7 @@ const [shopProducts, supports, creatorOrders, orderCount, supportSummary, orderS
   listMedia(env.DB),
   listNotificationTemplates(),
   listNotificationDeliveries(),
+  listButtonIntegrations(sessionUser),
 ]);
 const configuredRates = await db.select({ quoteCurrency: exchangeRates.quoteCurrency, rate: exchangeRates.rate }).from(exchangeRates).where(eq(exchangeRates.baseCurrency, 'USD'));
 
@@ -104,7 +110,6 @@ const totalTransactions = (supportSummary[0]?.count ?? 0) + (orderSummary[0]?.co
 const orderTotal = orderCount[0]?.count ?? 0;
 const orderPageCount = Math.max(1, Math.ceil(orderTotal / orderPageSize));
 const settingsTab = Astro.url.searchParams.get('tab') ?? 'profile';
-const publicSiteUrl = siteSettings.siteUrl?.trim() || '';
 const isSettings = currentPath === `${adminPath}/settings`;
 const isShop = currentPath === `${adminPath}/shop`;
 const isPayments = currentPath === `${adminPath}/payments`;
@@ -120,7 +125,7 @@ const supporterPageCount = Math.max(1, Math.ceil(supporterCount / supportersPage
 const supportersPage = Math.min(requestedSupportersPage, supporterPageCount);
 const supporterUsers = isSupporters ? await db.select({ id: users.id, name: users.name, email: users.email, emailVerified: users.emailVerified, createdAt: users.createdAt }).from(users).orderBy(desc(users.createdAt)).limit(supportersPageSize).offset((supportersPage - 1) * supportersPageSize) : [];
 const supportersUrl = (page: number) => `?page=${page}`;
-const pageTitle = isSupporters ? 'My supporters' : isNotifications ? 'Notifications' : isMedia ? 'File management' : isEmail ? 'Email settings' : isPayments ? 'Payments and orders' : isShop ? 'Shop' : isOperations ? 'System activity' : isSettings ? 'Settings' : 'Overview';
+const pageTitle = isButtons ? 'Buttons & widgets' : isSupporters ? 'My supporters' : isNotifications ? 'Notifications' : isMedia ? 'File management' : isEmail ? 'Email settings' : isPayments ? 'Payments and orders' : isShop ? 'Shop' : isOperations ? 'System activity' : isSettings ? 'Settings' : 'Overview';
 const navItems = [
   { label: 'Home', href: `/${adminPath}`, icon: 'home' as const },
   { label: 'Your page', href: '/', icon: 'page' as const },
@@ -139,8 +144,9 @@ const supportItems = [
 const earnItems = [
   // { label: 'Memberships', href: `/${adminPath}/memberships`, icon: 'memberships' as const },
   { label: 'Shop', href: `/${adminPath}/shop`, icon: 'shop' as const },
+  { label: 'Buttons & widgets', href: `/${adminPath}/buttons`, icon: 'widgets' as const },
   // { label: 'Commissions', href: `/${adminPath}/commissions`, icon: 'commissions' as const },
-  // { label: 'Buttons & widgets', href: `/${adminPath}/widgets`, icon: 'widgets' as const },
+
   // { label: 'Discord', href: `/${adminPath}/discord`, icon: 'discord' as const },
   // { label: 'Stream alerts', href: `/${adminPath}/alerts`, icon: 'alerts' as const },
   // { label: 'Promote your page', href: `/${adminPath}/promote`, icon: 'promote' as const },
@@ -148,7 +154,7 @@ const earnItems = [
 ];
 
 function isActive(label: string) {
-  return (label === 'Settings' && isSettings) || (label === 'Email' && isEmail) || (label === 'Notifications' && isNotifications) || (label === 'Files' && isMedia) || (label === 'Shop' && isShop) || (label === 'System activity' && isOperations) || (label === 'Payments & orders' && isPayments) || (label === 'My supporters' && isSupporters) || (label === 'Home' && currentPath === adminPath);
+  return (label === 'Buttons & widgets' && isButtons) || (label === 'Settings' && isSettings) || (label === 'Email' && isEmail) || (label === 'Notifications' && isNotifications) || (label === 'Files' && isMedia) || (label === 'Shop' && isShop) || (label === 'System activity' && isOperations) || (label === 'Payments & orders' && isPayments) || (label === 'My supporters' && isSupporters) || (label === 'Home' && currentPath === adminPath);
 }
 ---
 <html lang="en" class="admin-page">
@@ -180,7 +186,9 @@ function isActive(label: string) {
         </header>
 
         <main class="admin-content">
-          {isNotifications ? (
+          {isButtons ? (
+            <ButtonsManager client:load siteUrl={publicSiteUrl} handle={workspace.creator.handle} initial={buttonIntegrations} />
+          ) : isNotifications ? (
             <>
               <div class="admin-heading"><p class="admin-kicker">Messaging</p><h1>Notifications</h1><p>Manage reusable message templates and review delivery activity across channels.</p></div>
               <NotificationsManager client:load initialTemplates={notificationTemplates} initialDeliveries={notificationDeliveriesLog} />
@@ -205,7 +213,7 @@ function isActive(label: string) {
               <div class="admin-heading"><p class="admin-kicker">Community</p><h1>My supporters</h1><p>Review the registered users who can support your page and manage their purchases.</p></div>
               <section class="rounded-lg border bg-card">
                 <div class="flex items-center justify-between gap-4 border-b px-5 py-4"><h2 class="text-base font-semibold">Users</h2><span class="text-sm text-muted-foreground">{supporterCount} total</span></div>
-                {supporterUsers.length ? <><Table><TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Email</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Joined</TableHead></TableRow></TableHeader><TableBody>{supporterUsers.map((supporter) => <TableRow key={supporter.id}><TableCell className="font-medium">{supporter.name}</TableCell><TableCell>{supporter.email}</TableCell><TableCell><Badge variant={supporter.emailVerified ? 'secondary' : 'outline'}>{supporter.emailVerified ? 'Verified' : 'Unverified'}</Badge></TableCell><TableCell className="text-right text-muted-foreground">{supporter.createdAt.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</TableCell></TableRow>)}</TableBody></Table>{supporterCount > supportersPageSize && <Pagination className="px-5 py-4"><PaginationContent><PaginationItem><PaginationPrevious href={supportersUrl(Math.max(1, supportersPage - 1))} aria-disabled={supportersPage === 1} /></PaginationItem>{Array.from({ length: supporterPageCount }, (_, index) => index + 1).map((page) => <PaginationItem key={page}><PaginationLink href={supportersUrl(page)} isActive={page === supportersPage}>{page}</PaginationLink></PaginationItem>)}<PaginationItem><PaginationNext href={supportersUrl(Math.min(supporterPageCount, supportersPage + 1))} aria-disabled={supportersPage === supporterPageCount} /></PaginationItem></PaginationContent></Pagination>}</> : <Empty className="min-h-52 border-0"><EmptyMedia><AdminIcon name="supporters" size={20} /></EmptyMedia><EmptyHeader><EmptyTitle>No supporters yet</EmptyTitle><EmptyDescription>Registered users will appear here as your community grows.</EmptyDescription></EmptyHeader></Empty>}
+                {supporterUsers.length ? <><Table><TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Email</TableHead><TableHead>Status</TableHead><TableHead>Joined</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader><TableBody>{supporterUsers.map((supporter) => <TableRow key={supporter.id}><TableCell className="font-medium">{supporter.name}</TableCell><TableCell>{supporter.email}</TableCell><TableCell><Badge variant={supporter.emailVerified ? 'secondary' : 'outline'}>{supporter.emailVerified ? 'Verified' : 'Unverified'}</Badge></TableCell><TableCell className="text-muted-foreground">{supporter.createdAt.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</TableCell><TableCell className="text-right"><div className="flex justify-end gap-2"><Button type="button" variant="outline" size="sm" data-user-reset={supporter.id} data-user-email={supporter.email}><KeyRound data-icon="inline-start" />Reset password</Button><Button type="button" variant="destructive" size="sm" data-user-delete={supporter.id} data-user-name={supporter.name}><Trash2 data-icon="inline-start" />Delete</Button></div></TableCell></TableRow>)}</TableBody></Table>{supporterCount > supportersPageSize && <Pagination className="px-5 py-4"><PaginationContent><PaginationItem><PaginationPrevious href={supportersUrl(Math.max(1, supportersPage - 1))} aria-disabled={supportersPage === 1} /></PaginationItem>{Array.from({ length: supporterPageCount }, (_, index) => index + 1).map((page) => <PaginationItem key={page}><PaginationLink href={supportersUrl(page)} isActive={page === supportersPage}>{page}</PaginationLink></PaginationItem>)}<PaginationItem><PaginationNext href={supportersUrl(Math.min(supporterPageCount, supportersPage + 1))} aria-disabled={supportersPage === supporterPageCount} /></PaginationItem></PaginationContent></Pagination>}</> : <Empty className="min-h-52 border-0"><EmptyMedia><AdminIcon name="supporters" size={20} /></EmptyMedia><EmptyHeader><EmptyTitle>No supporters yet</EmptyTitle><EmptyDescription>Registered users will appear here as your community grows.</EmptyDescription></EmptyHeader></Empty>}
               </section>
             </>
           ) : isPayments ? (
@@ -283,6 +291,33 @@ function isActive(label: string) {
       document.querySelector('[data-logout]')?.addEventListener('click', async () => { window.location.href = '/api/auth/logout'; }); const productDialog = document.querySelector('[data-product-dialog]'); document.querySelector('[data-open-product-dialog]')?.addEventListener('click', () => { if (productDialog instanceof HTMLDialogElement) productDialog.showModal(); }); document.querySelector('[data-close-product-dialog]')?.addEventListener('click', () => { if (productDialog instanceof HTMLDialogElement) productDialog.close(); }); productDialog?.addEventListener('click', (event) => { if (event.target === productDialog && productDialog instanceof HTMLDialogElement) productDialog.close(); });
       const avatarInput = document.querySelector('[data-avatar-input]'); document.querySelector('[data-avatar-trigger]')?.addEventListener('click', () => { if (avatarInput instanceof HTMLInputElement) avatarInput.click(); }); avatarInput?.addEventListener('change', async () => { if (!(avatarInput instanceof HTMLInputElement) || !avatarInput.files?.[0]) return; const form = new FormData(); form.set('file', avatarInput.files[0]); const response = await fetch('/api/admin/avatar', { method: 'POST', body: form }); const result = await response.json().catch(() => ({})); if (!response.ok || !result.image) { showToast(result.error || 'Unable to upload avatar.'); avatarInput.value = ''; return; } const preview = document.querySelector('[data-avatar-preview]'); if (preview) { const image = preview.querySelector('[data-slot="avatar-image"]'); if (image instanceof HTMLImageElement) { image.src = result.image; image.onload = () => showToast('Profile photo updated.', 'success'); image.onerror = () => showToast('Photo uploaded, but it could not be loaded from storage.', 'error'); } } avatarInput.value = ''; if (!preview) showToast('Profile photo updated. Reload the page to view it.', 'success'); });
       document.querySelector('[data-profile-form]')?.addEventListener('submit', async (event) => { event.preventDefault(); const form = event.currentTarget; const data = new FormData(form); const profileResponse = await fetch('/api/admin/creator', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ displayName: data.get('displayName'), bio: data.get('bio'), whatDo: data.get('whatDo'), website: data.get('website'), siteUrl: data.get('siteUrl') }) }); if (profileResponse.ok) window.location.reload(); else { const result = await profileResponse.json().catch(() => ({})); showToast(result.error || 'Unable to save profile.'); } }); document.querySelector('[data-email-form]')?.addEventListener('submit', async (event) => { event.preventDefault(); const form = event.currentTarget; const data = new FormData(form); const response = await fetch('/api/admin/email', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ host: data.get('host'), port: data.get('port'), username: data.get('username'), password: data.get('password'), fromAddress: data.get('fromAddress'), replyTo: data.get('replyTo'), secure: data.get('secure') === 'on', enabled: data.get('enabled') === 'on' }) }); if (response.ok) window.location.reload(); else { const result = await response.json().catch(() => ({})); showToast(result.error || 'Unable to save email settings.'); } }); document.querySelector('[data-email-test-form]')?.addEventListener('submit', async (event) => { event.preventDefault(); const form = event.currentTarget; const to = new FormData(form).get('to'); const response = await fetch('/api/admin/email-test', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ to }) }); if (response.ok) showToast('Test email sent.', 'success'); else showToast((await response.json().catch(() => ({}))).error || 'Unable to send test email.'); }); document.querySelector('[data-product-form]')?.addEventListener('submit', async (event) => { event.preventDefault(); const form = event.currentTarget; const data = new FormData(form); const response = await fetch('/api/admin/products', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: data.get('name'), description: data.get('description'), price: String(data.get('price')), status: 'draft' }) }); if (response.ok) window.location.reload(); else showToast((await response.json().catch(() => ({}))).error || 'Unable to create product.'); }); document.querySelectorAll('[data-product-status]').forEach((button) => button.addEventListener('click', async () => { const response = await fetch('/api/admin/products', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: button.dataset.productStatus, status: button.dataset.nextStatus }) }); if (response.ok) window.location.reload(); else showToast('Unable to update product status.'); })); document.querySelectorAll('[data-order-detail]').forEach((button) => button.addEventListener('click', async () => { const panel = document.querySelector('[data-order-detail-panel]'); if (!panel || !button.dataset.orderDetail) return; panel.textContent = 'Loading order details...'; panel.classList.remove('hidden'); const response = await fetch(`/api/admin/transactions?orderId=${encodeURIComponent(button.dataset.orderDetail)}`); const data = await response.json().catch(() => ({})); if (!response.ok) { panel.textContent = data.error || 'Unable to load order details.'; return; } panel.replaceChildren(); const heading = document.createElement('strong'); heading.textContent = `Order ${data.order.id}`; panel.append(heading); const summary = document.createElement('p'); summary.className = 'mt-2'; summary.textContent = `${data.order.buyerEmail} · ${data.order.status} · ${data.order.currency}`; panel.append(summary); const totals = document.createElement('p'); totals.className = 'mt-1'; totals.textContent = `Subtotal: ${data.order.subtotalAmount} · Tax: ${data.order.taxAmount} · Total: ${data.order.totalAmount}`; panel.append(totals); const items = document.createElement('p'); items.className = 'mt-1'; items.textContent = `Items: ${data.items.map((item) => `${item.productName} × ${item.quantity}`).join(', ') || 'None'}`; panel.append(items); })); document.querySelector('[data-page-form]')?.addEventListener('submit', async (event) => { event.preventDefault(); const form = event.currentTarget; const data = new FormData(form); const response = await fetch('/api/admin/creator', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ displayName: data.get('displayName'), themeColor: data.get('themeColor'), welcomeMessage: data.get('welcomeMessage'), defaultSupportAmount: String(data.get('defaultSupportAmount')), allowAnonymous: data.get('allowAnonymous') === 'on', showSupport: data.get('showSupport') === 'on', showShop: data.get('showShop') === 'on', supportGoalEnabled: data.get('supportGoalEnabled') === 'on', supportGoalTitle: data.get('supportGoalTitle'), supportGoalAmount: String(data.get('supportGoalAmount')), supportGoalDescription: data.get('supportGoalDescription'), terms: data.get('terms') }) }); if (response.ok) window.location.reload(); else { const result = await response.json().catch(() => ({})); showToast(result.error || 'Unable to save page settings.'); } }); document.querySelector('[data-payment-settings-form]')?.addEventListener('submit', async (event) => { event.preventDefault(); const form = event.currentTarget; const data = new FormData(form); const commerceResponse = await fetch('/api/admin/settings', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ currency: data.get('currency'), taxRate: String(data.get('taxRate') || '0'), exchangeRates: { CNY: data.get('rateCNY'), EUR: data.get('rateEUR'), GBP: data.get('rateGBP'), JPY: data.get('rateJPY') }, confirmCurrencyChange: data.get('currency') === form.dataset.currentCurrency || window.confirm('Changing currency will convert editable prices and support settings. Historical transactions will not change. Continue?') }) }); if (commerceResponse.ok) window.location.reload(); else { const result = await commerceResponse.json().catch(() => ({})); showToast(result.error || 'Unable to save commerce settings.'); } }); document.querySelectorAll('[data-payment-provider]').forEach((button) => button.addEventListener('click', async () => { const response = await fetch('/api/admin/payment-accounts', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ provider: button.dataset.paymentProvider, status: button.dataset.paymentStatus }) }); if (response.ok) window.location.reload(); }));
+      document.querySelectorAll('[data-user-reset]').forEach((button) => button.addEventListener('click', async () => {
+        const userId = button.dataset.userReset;
+        if (!userId) return;
+        const email = button.dataset.userEmail || 'this user';
+        const password = window.prompt(`Enter a new password for ${email} (8-128 characters):`);
+        if (password === null) return;
+        if (password.length < 8 || password.length > 128) { showToast('Password must be 8-128 characters.'); return; }
+        const confirmation = window.prompt('Enter the new password again to confirm:');
+        if (confirmation !== password) { showToast('Passwords do not match.'); return; }
+        button.disabled = true;
+        const response = await fetch('/api/admin/users', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'reset-password', userId, password }) });
+        const result = await response.json().catch(() => ({}));
+        button.disabled = false;
+        if (response.ok) showToast('Password reset. The user must sign in again.', 'success');
+        else showToast(result.error || 'Unable to reset password.');
+      }));
+      document.querySelectorAll('[data-user-delete]').forEach((button) => button.addEventListener('click', async () => {
+        const userId = button.dataset.userDelete;
+        if (!userId) return;
+        const name = button.dataset.userName || 'this user';
+        if (!window.confirm(`Delete ${name}? This cannot be undone.`)) return;
+        button.disabled = true;
+        const response = await fetch('/api/admin/users', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'delete', userId }) });
+        const result = await response.json().catch(() => ({}));
+        if (response.ok) window.location.reload();
+        else { button.disabled = false; showToast(result.error || 'Unable to delete user.'); }
+      }));
       const contentForm = (selector, type, fields) => document.querySelector(selector)?.addEventListener('submit', async (event) => { event.preventDefault(); const data = new FormData(event.currentTarget); const body = { type }; fields.forEach((field) => { body[field] = data.get(field); }); const response = await fetch('/api/admin/content', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }); if (response.ok) window.location.reload(); else showToast((await response.json().catch(() => ({}))).error || 'Unable to create content.'); });
       contentForm('[data-gallery-form]', 'gallery', ['title', 'description', 'imageUrl', 'linkUrl']);
 

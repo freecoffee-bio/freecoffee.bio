@@ -17,7 +17,7 @@ const email = Astro.url.searchParams.get('email') ?? '';
         <p class="mt-3 text-sm leading-6 text-muted-foreground">The link expires in one hour. You can request another one below.</p>
         <form class="mt-7 space-y-4" id="resend-verification-form">
           <label class="block text-sm font-medium">Email<input required name="email" type="email" autoComplete="email" class="mt-2 h-11 w-full rounded-md border bg-background px-3" value={email} /></label>
-          <Button className="h-11 w-full" type="submit">Resend verification email</Button>
+          <Button className="h-11 w-full" type="submit" id="resend-verification-button">Resend verification email</Button>
         </form>
         <p class="mt-6 text-center text-sm text-muted-foreground"><a class="text-primary underline" href="/login">Back to sign in</a></p>
       </section>
@@ -25,14 +25,43 @@ const email = Astro.url.searchParams.get('email') ?? '';
     <script is:inline>
       const form = document.querySelector('#resend-verification-form');
       const email = form?.querySelector('[name="email"]');
+      const button = document.querySelector('#resend-verification-button');
+      let cooldown = 0;
+      let cooldownTimer;
       document.querySelector('#verification-email').textContent = email?.value || 'your email address';
       const showToast = (message, type = 'error') => window.dispatchEvent(new CustomEvent('freecoffee:toast', { detail: { message, type } }));
+      const startCooldown = (seconds) => {
+        cooldown = seconds;
+        if (button) button.disabled = true;
+        const updateButton = () => {
+          if (!button) return;
+          button.textContent = cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend verification email';
+          button.disabled = cooldown > 0;
+        };
+        updateButton();
+        window.clearInterval(cooldownTimer);
+        cooldownTimer = window.setInterval(() => {
+          cooldown = Math.max(0, cooldown - 1);
+          updateButton();
+          if (cooldown === 0) window.clearInterval(cooldownTimer);
+        }, 1000);
+      };
       form?.addEventListener('submit', async (event) => {
         event.preventDefault();
+        if (cooldown > 0 || !(email instanceof HTMLInputElement)) return;
+        if (button instanceof HTMLButtonElement) button.disabled = true;
         const response = await fetch('/api/auth/send-verification-email', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: email.value, callbackURL: `${window.location.origin}/profile` }) });
         const result = await response.json().catch(() => ({}));
-        if (response.ok) showToast('If this account needs verification, a new email has been queued.', 'success');
-        else showToast(result.message || 'Unable to send a verification email.');
+        if (response.ok) {
+          document.querySelector('#verification-email').textContent = email.value;
+          startCooldown(60);
+          showToast('If this account needs verification, a new email has been queued.', 'success');
+        } else {
+          const retryAfter = Number(response.headers.get('retry-after'));
+          if (response.status === 429 && Number.isFinite(retryAfter) && retryAfter > 0) startCooldown(retryAfter);
+          else if (button instanceof HTMLButtonElement) button.disabled = false;
+          showToast(result.message || 'Unable to send a verification email.');
+        }
       });
     </script>
   </body>

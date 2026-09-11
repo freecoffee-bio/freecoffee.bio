@@ -11,8 +11,8 @@ export const ALL: APIRoute = async ({ request }) => {
     await verifyTurnstile(request, env.DB)
   }
 
-  if (request.method === 'POST' && pathname.endsWith('/send-verification-email')) {
-    const rateLimit = await enforceRateLimit(request, 'verification-email', 3)
+  if (request.method === 'POST' && (pathname.endsWith('/send-verification-email') || pathname.endsWith('/change-email'))) {
+    const rateLimit = await enforceRateLimit(request, 'verification-email', 1)
     if (!rateLimit.allowed) return Response.json({ message: 'Too many verification email requests. Please try again later.' }, { status: 429, headers: { 'retry-after': String(rateLimit.retryAfter) } })
   }
   return createAuth().handler(request)

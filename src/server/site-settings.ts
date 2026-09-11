@@ -1,6 +1,6 @@
 import Big from 'big.js';
 import { eq } from 'drizzle-orm';
-import { isCurrency, type Currency, SUPPORTED_CURRENCIES } from './money';
+import { isCurrency, type Currency } from './money';
 import { env } from 'cloudflare:workers';
 import { createDb } from '../db';
 import { creatorPageSettings, products, siteSettings } from '../db/schema';
@@ -66,11 +66,9 @@ export async function updateSiteSettings(input: { siteUrl?: string; currency?: u
   if (currency !== existing.currency && input.confirmCurrencyChange !== true) throw new Error('Confirm currency change to migrate editable prices.');
   if (exchangeRateMode === 'manual' && input.exchangeRates !== undefined) {
     if (!input.exchangeRates || typeof input.exchangeRates !== 'object') throw new Error('Invalid exchange rates.');
-    for (const quote of SUPPORTED_CURRENCIES) {
-      if (quote === 'USD') continue;
-      const value = (input.exchangeRates as Record<string, unknown>)[quote];
-      if (typeof value !== 'string' || value.trim() === '') continue;
-      await saveUsdRate(quote, value.trim());
+    if (currency !== 'USD') {
+      const value = (input.exchangeRates as Record<string, unknown>)[currency];
+      if (typeof value === 'string' && value.trim() !== '') await saveUsdRate(currency, value.trim());
     }
   }
   const siteUrl = input.siteUrl === undefined ? existing.siteUrl : normalizeSiteUrl(input.siteUrl);

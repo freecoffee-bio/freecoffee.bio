@@ -100,8 +100,8 @@ export async function fetchExchangeRates(apiUrl: string, now = new Date()) {
 
 export async function syncAutomaticExchangeRates(now = new Date(), force = false, apiUrlOverride?: string): Promise<'disabled' | 'skipped' | 'synced' | 'failed'> {
   const db = createDb(env.DB);
-  const [settings] = await db.select({ mode: siteSettings.exchangeRateMode, apiUrl: siteSettings.exchangeRateApiUrl }).from(siteSettings).where(eq(siteSettings.id, 1)).limit(1);
-  if (settings?.mode === 'manual' && !force) return 'disabled';
+  const [settings] = await db.select({ currency: siteSettings.currency, mode: siteSettings.exchangeRateMode, apiUrl: siteSettings.exchangeRateApiUrl }).from(siteSettings).where(eq(siteSettings.id, 1)).limit(1);
+  if (!settings?.currency || settings.currency === 'USD' || (settings.mode === 'manual' && !force)) return 'disabled';
   const apiUrl = validateExchangeRateApiUrl(apiUrlOverride ?? settings?.apiUrl ?? DEFAULT_EXCHANGE_RATE_API_URL);
   const inserted = await db.insert(exchangeRateSyncState).values({ id: 1, lastAttemptAt: now, lastSuccessAt: null, lastError: null }).onConflictDoNothing().returning({ id: exchangeRateSyncState.id });
   if (!inserted.length && !force) {
@@ -118,12 +118,10 @@ export async function syncAutomaticExchangeRates(now = new Date(), force = false
   }
   try {
     const snapshot = await fetchExchangeRates(apiUrl, now);
-    const upsert = (quoteCurrency: keyof typeof snapshot.rates) => db.insert(exchangeRates).values({ baseCurrency: 'USD', quoteCurrency, rate: snapshot.rates[quoteCurrency], source: EXCHANGE_RATE_SOURCE, effectiveAt: snapshot.effectiveAt, updatedAt: now }).onConflictDoUpdate({ target: [exchangeRates.baseCurrency, exchangeRates.quoteCurrency], set: { rate: snapshot.rates[quoteCurrency], source: EXCHANGE_RATE_SOURCE, effectiveAt: snapshot.effectiveAt, updatedAt: now } });
+    const quoteCurrency = settings.currency as keyof typeof snapshot.rates;
+    const upsert = db.insert(exchangeRates).values({ baseCurrency: 'USD', quoteCurrency, rate: snapshot.rates[quoteCurrency], source: EXCHANGE_RATE_SOURCE, effectiveAt: snapshot.effectiveAt, updatedAt: now }).onConflictDoUpdate({ target: [exchangeRates.baseCurrency, exchangeRates.quoteCurrency], set: { rate: snapshot.rates[quoteCurrency], source: EXCHANGE_RATE_SOURCE, effectiveAt: snapshot.effectiveAt, updatedAt: now } });
     await db.batch([
-      upsert('CNY'),
-      upsert('EUR'),
-      upsert('GBP'),
-      upsert('JPY'),
+      upsert,
       db.update(exchangeRateSyncState).set({ lastSuccessAt: now, lastError: null }).where(eq(exchangeRateSyncState.id, 1)),
     ]);
     return 'synced';

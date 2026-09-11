@@ -10,26 +10,33 @@ export const POST: APIRoute = async ({ request }) => {
   if (!session?.user || !(await isRoot(session.user.id))) return new Response('Unauthorized', { status: 401 });
   try {
     const body = await request.json() as Record<string, unknown>;
-    const provider = body.provider;
-    if (provider !== 'base-usdc' && provider !== 'solana-usdc' && provider !== 'solana-usdt') throw new Error('Choose a supported chain payment provider.');
+    const network = body.network;
+    if (network !== 'base' && network !== 'solana') throw new Error('Choose a supported payment network.');
     const creator = await getOrCreateCreator(session.user);
     if (body.action === 'disconnect') {
-      if (provider === 'base-usdc') await disableBaseUsdcWallet(creator.id);
-      else await disableSolanaWallet(creator.id, provider === 'solana-usdc' ? 'USDC' : 'USDT');
+      if (network === 'base') await disableBaseUsdcWallet(creator.id);
+      else await Promise.all([disableSolanaWallet(creator.id, 'USDC'), disableSolanaWallet(creator.id, 'USDT')]);
       return Response.json({ ok: true });
     }
-    const input = {
-      address: typeof body.address === 'string' ? body.address : '',
+    if (!body.addresses || typeof body.addresses !== 'object') throw new Error('Enter the required wallet addresses.');
+    const addresses = body.addresses as Record<string, unknown>;
+    const shared = {
       rpcUrl: typeof body.rpcUrl === 'string' ? body.rpcUrl : '',
       requiredConfirmations: body.requiredConfirmations,
     };
-    if (provider === 'base-usdc') await saveBaseUsdcWallet(creator.id, input);
-    else await saveSolanaWallet(creator.id, provider === 'solana-usdc' ? 'USDC' : 'USDT', input);
+    if (network === 'base') {
+      await saveBaseUsdcWallet(creator.id, { ...shared, address: typeof addresses.USDC === 'string' ? addresses.USDC : '' });
+    } else {
+      await saveSolanaWallet(creator.id, {
+        USDC: typeof addresses.USDC === 'string' ? addresses.USDC : '',
+        USDT: typeof addresses.USDT === 'string' ? addresses.USDT : '',
+      }, shared);
+    }
     return Response.json({ ok: true });
   } catch (error) {
     console.error('Chain wallet settings update failed', error);
     const message = error instanceof Error ? error.message : '';
-    const safeMessage = /address|RPC|confirmations|commitment|mainnet|supported chain payment provider/i.test(message) ? message : 'Unable to save chain wallet settings.';
+    const safeMessage = /address|RPC|confirmations|commitment|mainnet|supported payment network|required wallet/i.test(message) ? message : 'Unable to save chain wallet settings.';
     return Response.json({ error: safeMessage }, { status: 400 });
   }
 };

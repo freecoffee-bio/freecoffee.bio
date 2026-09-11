@@ -28,6 +28,7 @@ export function CommerceSettingsForm({ currency: initialCurrency, taxRate, excha
   const [rates, setRates] = useState(exchangeRates)
   const [saving, setSaving] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
+  const exchangeRateField = exchangeRateFields.find((field) => field.currency === currency)
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -49,12 +50,7 @@ export function CommerceSettingsForm({ currency: initialCurrency, taxRate, excha
           taxRate: String(data.get('taxRate') || '0'),
           exchangeRateMode,
           exchangeRateApiUrl,
-          exchangeRates: {
-            CNY: data.get('rateCNY'),
-            EUR: data.get('rateEUR'),
-            GBP: data.get('rateGBP'),
-            JPY: data.get('rateJPY'),
-          },
+          exchangeRates: exchangeRateField ? { [exchangeRateField.currency]: data.get(exchangeRateField.name) } : undefined,
           confirmCurrencyChange,
         }),
       })
@@ -84,33 +80,35 @@ export function CommerceSettingsForm({ currency: initialCurrency, taxRate, excha
         <Input id="commerce-tax-rate" name="taxRate" type="number" min="0" max="100" step="0.01" defaultValue={taxRate} />
         <FieldDescription>A single manual tax rate applies to new orders. Confirm your local tax obligations.</FieldDescription>
       </Field>
-      <Field>
-        <FieldLabel htmlFor="exchange-rate-api-url">Exchange rate API URL</FieldLabel>
-        <div className="flex gap-2">
-          <Input id="exchange-rate-api-url" value={exchangeRateApiUrl} onChange={(event) => setExchangeRateApiUrl(event.target.value)} className="min-w-0 flex-1" />
-          <Button type="button" variant="outline" disabled={refreshing} onClick={async () => {
-            setRefreshing(true)
-            try {
-              const response = await fetch('/api/admin/settings', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ forceRefresh: true, exchangeRateApiUrl }) })
-              const result = await response.json().catch(() => ({})) as { error?: string; exchangeRates?: Partial<ExchangeRates> }
-              if (!response.ok) showToast(result.error || 'Unable to refresh exchange rates.')
-              else {
-                setRates((current) => ({ ...current, ...result.exchangeRates }))
-                showToast('Exchange rates refreshed.', 'success')
-              }
-            } catch { showToast('Unable to reach the exchange rate service.') } finally { setRefreshing(false) }
-          }} aria-label="Refresh exchange rates"><RefreshCw className={refreshing ? 'animate-spin' : ''} /></Button>
-        </div>
-      </Field>
-      <Field>
-        <FieldLabel htmlFor="exchange-rate-mode">Exchange rates</FieldLabel>
-        <NativeSelect id="exchange-rate-mode" className="w-full [&_select]:h-[45px]" value={exchangeRateMode} onChange={(event) => setExchangeRateMode(event.target.value)}>
-          <NativeSelectOption value="automatic">Automatic hourly rates</NativeSelectOption>
-          <NativeSelectOption value="manual">Manual rates</NativeSelectOption>
-        </NativeSelect>
-        <FieldDescription>Automatic rates are fetched from open.er-api.com. New non-USD quotes stop if rates are more than 48 hours old.</FieldDescription>
-      </Field>
-      {exchangeRateFields.map((field) => <Field key={field.currency}><FieldLabel htmlFor={field.id}>USD to {field.currency}</FieldLabel><Input id={field.id} name={field.name} value={rates[field.currency]} onChange={(event) => setRates((current) => ({ ...current, [field.currency]: event.target.value }))} placeholder={field.placeholder} readOnly={exchangeRateMode === 'automatic'} aria-readonly={exchangeRateMode === 'automatic'} /></Field>)}
+      {currency !== 'USD' && exchangeRateField && <>
+        <Field>
+          <FieldLabel htmlFor="exchange-rate-api-url">Exchange rate API URL</FieldLabel>
+          <div className="flex gap-2">
+            <Input id="exchange-rate-api-url" value={exchangeRateApiUrl} onChange={(event) => setExchangeRateApiUrl(event.target.value)} className="min-w-0 flex-1" />
+            <Button type="button" variant="outline" className="h-[45px]" disabled={refreshing} onClick={async () => {
+              setRefreshing(true)
+              try {
+                const response = await fetch('/api/admin/settings', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ forceRefresh: true, currency, exchangeRateApiUrl }) })
+                const result = await response.json().catch(() => ({})) as { error?: string; exchangeRates?: Partial<ExchangeRates> }
+                if (!response.ok) showToast(result.error || 'Unable to refresh exchange rates.')
+                else {
+                  setRates((current) => ({ ...current, ...result.exchangeRates }))
+                  showToast('Exchange rates refreshed.', 'success')
+                }
+              } catch { showToast('Unable to reach the exchange rate service.') } finally { setRefreshing(false) }
+            }} aria-label="Refresh exchange rates"><RefreshCw className={refreshing ? 'animate-spin' : ''} /></Button>
+          </div>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="exchange-rate-mode">Exchange rates</FieldLabel>
+          <NativeSelect id="exchange-rate-mode" className="w-full [&_select]:h-[45px]" value={exchangeRateMode} onChange={(event) => setExchangeRateMode(event.target.value)}>
+            <NativeSelectOption value="automatic">Automatic hourly rates</NativeSelectOption>
+            <NativeSelectOption value="manual">Manual rates</NativeSelectOption>
+          </NativeSelect>
+          <FieldDescription>Automatic rates are fetched from open.er-api.com. New non-USD quotes stop if rates are more than 48 hours old.</FieldDescription>
+        </Field>
+        <Field><FieldLabel htmlFor={exchangeRateField.id}>USD to {exchangeRateField.currency}</FieldLabel><Input id={exchangeRateField.id} name={exchangeRateField.name} value={rates[exchangeRateField.currency]} onChange={(event) => setRates((current) => ({ ...current, [exchangeRateField.currency]: event.target.value }))} placeholder={exchangeRateField.placeholder} readOnly={exchangeRateMode === 'automatic'} aria-readonly={exchangeRateMode === 'automatic'} /></Field>
+      </>}
       <Button className="w-full sm:w-auto" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Save commerce settings'}</Button>
     </FieldGroup>
   </form>

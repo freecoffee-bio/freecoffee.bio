@@ -3,6 +3,7 @@ import { createAuth } from '../../../server/auth';
 import { isRoot } from '../../../server/admin';
 import { updateSiteSettings } from '../../../server/site-settings';
 import { fetchExchangeRates } from '../../../server/exchange-rate';
+import { isCurrency } from '../../../server/money';
 
 export const POST: APIRoute = async ({ request }) => {
   const session = await createAuth().api.getSession({ headers: request.headers });
@@ -21,8 +22,9 @@ export const POST: APIRoute = async ({ request }) => {
 
   try {
     if (body.forceRefresh === true) {
+      if (!isCurrency(body.currency) || body.currency === 'USD') return Response.json({ ok: true, exchangeRates: {} });
       const snapshot = await fetchExchangeRates(String(body.exchangeRateApiUrl ?? ''));
-      return Response.json({ ok: true, exchangeRates: snapshot.rates });
+      return Response.json({ ok: true, exchangeRates: { [body.currency]: snapshot.rates[body.currency] } });
     }
     const settings = await updateSiteSettings({
       siteUrl: typeof body.siteUrl === 'string' ? body.siteUrl : undefined,

@@ -49,20 +49,25 @@ export async function getSolanaWallet(creatorId: number, asset: SolanaAsset): Pr
   return wallet ?? null;
 }
 
-export async function saveSolanaWallet(creatorId: number, asset: SolanaAsset, input: { address: string; rpcUrl: string; requiredConfirmations: unknown }) {
-  const address = validateSolanaAddress(input.address.trim());
+export async function saveSolanaWallet(creatorId: number, addresses: Record<SolanaAsset, string>, input: { rpcUrl: string; requiredConfirmations: unknown }) {
+  const validatedAddresses = {
+    USDC: validateSolanaAddress(addresses.USDC.trim()),
+    USDT: validateSolanaAddress(addresses.USDT.trim()),
+  };
   const rpcUrl = validateSolanaRpcUrl(input.rpcUrl);
   const commitment = parseSolanaCommitment(input.requiredConfirmations);
-  await verifySolanaRpc(rpcUrl, address, assetConfig[asset].mint, commitment);
+  await Promise.all((Object.keys(validatedAddresses) as SolanaAsset[]).map((asset) => verifySolanaRpc(rpcUrl, validatedAddresses[asset], assetConfig[asset].mint, commitment)));
   const requiredConfirmations = commitment === 'finalized' ? 2 : 1;
   const now = new Date();
-  await createDb(env.DB).insert(creatorCryptoWallets).values({
-    id: crypto.randomUUID(), creatorId, network: 'solana', asset, address, rpcUrl,
+  const db = createDb(env.DB);
+  const upsert = (asset: SolanaAsset) => db.insert(creatorCryptoWallets).values({
+    id: crypto.randomUUID(), creatorId, network: 'solana', asset, address: validatedAddresses[asset], rpcUrl,
     requiredConfirmations, enabled: true, createdAt: now, updatedAt: now,
   }).onConflictDoUpdate({
     target: [creatorCryptoWallets.creatorId, creatorCryptoWallets.network, creatorCryptoWallets.asset],
-    set: { address, rpcUrl, requiredConfirmations, enabled: true, updatedAt: now },
+    set: { address: validatedAddresses[asset], rpcUrl, requiredConfirmations, enabled: true, updatedAt: now },
   });
+  await db.batch([upsert('USDC'), upsert('USDT')]);
 }
 
 export async function disableSolanaWallet(creatorId: number, asset: SolanaAsset) {

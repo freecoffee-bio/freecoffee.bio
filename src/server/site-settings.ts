@@ -5,6 +5,7 @@ import { env } from 'cloudflare:workers';
 import { createDb } from '../db';
 import { creatorPageSettings, products, siteSettings } from '../db/schema';
 import { convertCurrency, saveUsdRate } from './exchange-rate';
+import { DEFAULT_EXCHANGE_RATE_API_URL, validateExchangeRateApiUrl } from './exchange-rate-core';
 import { mergePaymentProviderConfig, parsePaymentProviders } from './payment-config';
 import { normalizeSiteUrl, composeSiteUrl } from './site-url';
 export { normalizeSiteUrl };
@@ -15,6 +16,8 @@ const defaultSettings = {
   siteName: 'FreeCoffee.bio',
   currency: 'USD' as Currency,
   taxRate: 0,
+  exchangeRateMode: 'automatic',
+  exchangeRateApiUrl: DEFAULT_EXCHANGE_RATE_API_URL,
   paymentProviders: '{}',
   updatedAt: new Date(),
 };
@@ -43,7 +46,7 @@ export async function ensureSiteSettings(siteUrl?: string) {
   return getSiteSettings();
 }
 
-export async function updateSiteSettings(input: { siteUrl?: string; currency?: unknown; taxRate?: unknown; exchangeRates?: unknown; confirmCurrencyChange?: boolean }) {
+export async function updateSiteSettings(input: { siteUrl?: string; currency?: unknown; taxRate?: unknown; exchangeRateMode?: unknown; exchangeRateApiUrl?: unknown; exchangeRates?: unknown; confirmCurrencyChange?: boolean }) {
   const db = createDb(env.DB);
   const existing = await getSiteSettings();
   const currency = input.currency === undefined ? existing.currency : input.currency;
@@ -57,8 +60,11 @@ export async function updateSiteSettings(input: { siteUrl?: string; currency?: u
     throw new Error('Tax rate must be between 0% and 100%.');
   }
   if (!Number.isSafeInteger(taxRate) || taxRate < 0 || taxRate > 10000) throw new Error('Tax rate must be between 0% and 100%.');
+  const exchangeRateMode = input.exchangeRateMode === undefined ? existing.exchangeRateMode : input.exchangeRateMode;
+  if (exchangeRateMode !== 'automatic' && exchangeRateMode !== 'manual') throw new Error('Invalid exchange rate mode.');
+  const exchangeRateApiUrl = input.exchangeRateApiUrl === undefined ? existing.exchangeRateApiUrl : validateExchangeRateApiUrl(String(input.exchangeRateApiUrl));
   if (currency !== existing.currency && input.confirmCurrencyChange !== true) throw new Error('Confirm currency change to migrate editable prices.');
-  if (input.exchangeRates !== undefined) {
+  if (exchangeRateMode === 'manual' && input.exchangeRates !== undefined) {
     if (!input.exchangeRates || typeof input.exchangeRates !== 'object') throw new Error('Invalid exchange rates.');
     for (const quote of SUPPORTED_CURRENCIES) {
       if (quote === 'USD') continue;
@@ -88,11 +94,11 @@ export async function updateSiteSettings(input: { siteUrl?: string; currency?: u
     const migrationStatements = [
       ...productMigrations.map(({ product, converted }) => db.update(products).set({ price: converted.amount, currency, updatedAt: new Date() }).where(eq(products.id, product.id))),
       ...pageMigrations.map(({ page, defaultAmount, minimumAmount, suggestedAmounts, goalAmount }) => db.update(creatorPageSettings).set({ defaultSupportAmount: defaultAmount.amount, minimumSupportAmount: minimumAmount.amount, suggestedSupportAmounts: JSON.stringify(suggestedAmounts), supportGoalAmount: goalAmount?.amount ?? page.supportGoalAmount, updatedAt: new Date() }).where(eq(creatorPageSettings.creatorId, page.creatorId))),
-      db.update(siteSettings).set({ siteUrl, currency, taxRate, updatedAt: new Date() }).where(eq(siteSettings.id, 1)),
+      db.update(siteSettings).set({ siteUrl, currency, taxRate, exchangeRateMode, exchangeRateApiUrl, updatedAt: new Date() }).where(eq(siteSettings.id, 1)),
     ];
     await db.batch(migrationStatements as [typeof migrationStatements[0], ...typeof migrationStatements]);
   } else {
-    await db.update(siteSettings).set({ siteUrl, currency, taxRate, updatedAt: new Date() }).where(eq(siteSettings.id, 1));
+    await db.update(siteSettings).set({ siteUrl, currency, taxRate, exchangeRateMode, exchangeRateApiUrl, updatedAt: new Date() }).where(eq(siteSettings.id, 1));
   }
   return getSiteSettings();
 }

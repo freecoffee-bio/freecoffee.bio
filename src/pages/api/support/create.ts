@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { createSupportCheckout, type PaymentProviderName } from '../../../server/payments';
+import { isChainPaymentProvider } from '../../../server/chain-payments';
 import { getCurrentUser } from '../../../server/session';
 import { publicError, requestId } from '../../../server/http';
 import { getSiteCallbackUrl, getSiteSettings } from '../../../server/site-settings';
@@ -14,7 +15,7 @@ export const POST: APIRoute = async ({ request }) => {
   if (!rate.allowed) return publicError('Too many checkout attempts. Please try again shortly.', 429, id, rate.retryAfter);
   try {
     const body = await request.json() as Record<string, unknown>;
-    const provider = body.provider === 'paypal' ? 'paypal' : body.provider === 'stripe' ? 'stripe' : body.provider === 'base-usdc' ? 'base-usdc' : null;
+    const provider = body.provider === 'paypal' ? 'paypal' : body.provider === 'stripe' ? 'stripe' : isChainPaymentProvider(body.provider) ? body.provider : null;
     if (!provider) return publicError('Choose an available payment method.', 400, id);
     const settings = await getSiteSettings();
     const amount = typeof body.amount === 'string' ? amountToMinor(body.amount, settings.currency) : -1;

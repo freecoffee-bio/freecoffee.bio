@@ -8,6 +8,7 @@ export const BASE_USDC_DECIMALS = 6;
 export const USDC_PAYMENT_INCREMENT_UNITS = 1_000;
 export const USDC_PAYMENT_AMOUNT_SLOTS = 100;
 export const CRYPTO_PAYMENT_WINDOW_MS = 20 * 60_000;
+export const CRYPTO_RECONCILIATION_WINDOW_MS = 30 * 60_000;
 
 export type BaseUsdcRpcLog = {
   address?: string;
@@ -67,14 +68,24 @@ export function parseUsdcLog(log: BaseUsdcRpcLog) {
   };
 }
 
-export function nextAvailableUsdcAmount(baseAmount: number, usedAmounts: Iterable<number>): number {
+export function isUsdcPaymentWithinWindow(paidAtMs: number, createdAtMs: number, expiresAtMs: number): boolean {
+  if (![paidAtMs, createdAtMs, expiresAtMs].every(Number.isSafeInteger)) return false;
+  const paidAt = Math.floor(paidAtMs / 1_000);
+  return paidAt >= Math.floor(createdAtMs / 1_000)
+    && paidAt <= Math.floor(expiresAtMs / 1_000);
+}
+
+export function usdcAmountCandidates(baseAmount: number): number[] {
   if (!Number.isSafeInteger(baseAmount) || baseAmount <= 0) throw new Error('Invalid USDC amount.');
+  const amounts = Array.from({ length: USDC_PAYMENT_AMOUNT_SLOTS }, (_, offset) => baseAmount + offset * USDC_PAYMENT_INCREMENT_UNITS);
+  if (amounts.some((amount) => !Number.isSafeInteger(amount))) throw new Error('USDC amount exceeds the supported range.');
+  return amounts;
+}
+
+export function nextAvailableUsdcAmount(baseAmount: number, usedAmounts: Iterable<number>): number {
   const used = new Set(usedAmounts);
-  for (let offset = 0; offset < USDC_PAYMENT_AMOUNT_SLOTS; offset += 1) {
-    const amount = baseAmount + offset * USDC_PAYMENT_INCREMENT_UNITS;
-    if (!Number.isSafeInteger(amount)) break;
-    if (!used.has(amount)) return amount;
-  }
+  const amount = usdcAmountCandidates(baseAmount).find((candidate) => !used.has(candidate));
+  if (amount !== undefined) return amount;
   throw new Error('Too many active Base USDC payments. Please try again later.');
 }
 

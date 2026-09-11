@@ -79,6 +79,8 @@ export const siteSettings = sqliteTable('site_settings', {
   siteName: text('site_name').notNull().default('FreeCoffee.bio'),
   currency: text('currency').notNull().default('USD'),
   taxRate: integer('tax_rate').notNull().default(0),
+  exchangeRateMode: text('exchange_rate_mode').notNull().default('automatic'),
+  exchangeRateApiUrl: text('exchange_rate_api_url').notNull().default('https://open.er-api.com/v6/latest/USD'),
   paymentProviders: text('payment_providers').notNull().default('{}'),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
@@ -95,6 +97,13 @@ export const exchangeRates = sqliteTable('exchange_rates', {
 }, (table) => [
   uniqueIndex('exchange_rates_base_quote_unique').on(table.baseCurrency, table.quoteCurrency),
 ]);
+
+export const exchangeRateSyncState = sqliteTable('exchange_rate_sync_state', {
+  id: integer('id').primaryKey(),
+  lastAttemptAt: integer('last_attempt_at', { mode: 'timestamp' }).notNull(),
+  lastSuccessAt: integer('last_success_at', { mode: 'timestamp' }),
+  lastError: text('last_error'),
+});
 
 export const s3StorageSettings = sqliteTable('s3_storage_settings', {
   id: integer('id').primaryKey(),
@@ -389,6 +398,20 @@ export const notificationDeliveries = sqliteTable('notification_deliveries', {
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
 
+export const chainPaymentAmountSlots = sqliteTable('chain_payment_amount_slots', {
+  id: text('id').primaryKey(),
+  network: text('network').notNull(),
+  asset: text('asset').notNull(),
+  walletAddress: text('wallet_address').notNull(),
+  amount: integer('amount').notNull(),
+  referenceId: text('reference_id').notNull().unique(),
+  expiresAt: integer('expires_at', { mode: 'timestamp' }).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+}, (table) => [
+  uniqueIndex('chain_payment_amount_slots_scope_unique').on(table.network, table.asset, table.walletAddress, table.amount),
+  index('chain_payment_amount_slots_expires_at_idx').on(table.expiresAt),
+]);
+
 export const paymentRecords = sqliteTable('payment_records', {
   id: text('id').primaryKey(),
   userId: text('user_id').references(() => users.id, { onDelete: 'set null' }),
@@ -408,6 +431,10 @@ export const paymentRecords = sqliteTable('payment_records', {
   requiredConfirmations: integer('required_confirmations'),
   quotedAmount: integer('quoted_amount'),
   quotedCurrency: text('quoted_currency'),
+  basePaymentAmount: integer('base_payment_amount'),
+  exchangeRate: text('exchange_rate'),
+  exchangeRateSource: text('exchange_rate_source'),
+  exchangeRateAt: integer('exchange_rate_at', { mode: 'timestamp' }),
   expiresAt: integer('expires_at', { mode: 'timestamp' }),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),

@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { createOrderCheckout, type PaymentProviderName } from '../../../server/payments';
+import { isChainPaymentProvider } from '../../../server/chain-payments';
 import { publicError, requestId } from '../../../server/http';
 import { getSiteCallbackUrl } from '../../../server/site-settings';
 import { getCurrentUser } from '../../../server/session';
@@ -15,7 +16,7 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     const form = await request.formData();
     const body = Object.fromEntries(form.entries());
-    const provider = body.provider === 'paypal' ? 'paypal' : body.provider === 'stripe' ? 'stripe' : body.provider === 'base-usdc' ? 'base-usdc' : null;
+    const provider = body.provider === 'paypal' ? 'paypal' : body.provider === 'stripe' ? 'stripe' : isChainPaymentProvider(body.provider) ? body.provider : null;
 
     const productId = typeof body.productId === 'string' ? body.productId : '';
     const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';

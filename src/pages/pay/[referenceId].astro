@@ -1,61 +1,156 @@
 ---
 import QRCode from 'qrcode';
-import { and, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { env } from 'cloudflare:workers';
+import { CircleCheck } from 'lucide-react';
 import PublicPage from '../../layouts/public-page.astro';
 import { createDb } from '../../db';
 import { orders, paymentRecords, supportTransactions } from '../../db/schema';
-import { formatUsdc } from '../../server/base-usdc';
+import { buildChainPaymentUri, chainPaymentDescriptor, formatChainPaymentAmount, isChainPaymentProvider } from '../../server/chain-payments';
 
 const referenceId = Astro.params.referenceId ?? '';
 const db = createDb(env.DB);
-const [payment] = await db.select().from(paymentRecords).where(and(eq(paymentRecords.referenceId, referenceId), eq(paymentRecords.provider, 'base-usdc'))).limit(1);
-if (!payment?.walletAddress || !payment.expiresAt) return new Response('Not Found', { status: 404 });
+const [payment] = await db.select().from(paymentRecords).where(eq(paymentRecords.referenceId, referenceId)).limit(1);
+if (!payment?.walletAddress || !payment.expiresAt || !isChainPaymentProvider(payment.provider)) return new Response('Not Found', { status: 404 });
+const descriptor = chainPaymentDescriptor(payment.provider);
 const [support] = payment.kind === 'support' ? await db.select({ email: supportTransactions.supporterEmail }).from(supportTransactions).where(eq(supportTransactions.id, referenceId)).limit(1) : [];
 const [order] = payment.kind === 'order' ? await db.select({ email: orders.buyerEmail }).from(orders).where(eq(orders.id, referenceId)).limit(1) : [];
-const amount = formatUsdc(payment.amount);
+const amount = formatChainPaymentAmount(payment.amount, payment.provider);
 const initialRemainingSeconds = Math.max(0, Math.ceil((payment.expiresAt.getTime() - Date.now()) / 1000));
 const initialCountdown = `${String(Math.floor(initialRemainingSeconds / 60)).padStart(2, '0')}:${String(initialRemainingSeconds % 60).padStart(2, '0')}`;
-const transferUri = `ethereum:0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913@8453/transfer?address=${payment.walletAddress}&uint256=${payment.amount}`;
-const qr = await QRCode.toDataURL(payment.walletAddress, { margin: 1, width: 320, errorCorrectionLevel: 'M' });
+const initiallyPaid = payment.status === 'paid';
+const initiallyExpired = !initiallyPaid && (payment.status === 'expired' || initialRemainingSeconds === 0);
+const stillReconciling = payment.status === 'pending' && initialRemainingSeconds === 0;
+const retryLabel = payment.kind === 'order' ? 'Return to shop' : 'Return to support page';
+const successHref = payment.kind === 'order' ? '/orders' : '/';
+const successLabel = payment.kind === 'order' ? 'View my orders' : 'Return to support page';
+const receiptEmail = support?.email ?? order?.email;
+const transferUri = buildChainPaymentUri(payment.provider, payment.walletAddress, payment.amount);
+const qr = await QRCode.toDataURL(transferUri, { margin: 1, width: 320, errorCorrectionLevel: 'M' });
+const confirmationLabel = descriptor.network === 'solana'
+  ? (payment.requiredConfirmations === 2 ? 'Finalized' : 'Confirmed')
+  : `${payment.requiredConfirmations ?? 1} blocks`;
 ---
-<PublicPage title="Pay with USDC" description="Complete a Base USDC payment" brandName="FreeCoffee.bio">
-  <main class="mx-auto w-full max-w-xl px-4 py-8 sm:py-12" data-payment data-reference={referenceId} data-expires={payment.expiresAt.toISOString()}>
+<PublicPage title={`Pay with ${descriptor.asset}`} description={`Complete a ${descriptor.networkLabel} ${descriptor.asset} payment`} brandName="FreeCoffee.bio">
+  <main class="mx-auto w-full max-w-xl px-4 py-8 sm:py-12" data-payment data-reference={referenceId} data-expires={payment.expiresAt.toISOString()} data-network={descriptor.network} data-initial-status={payment.status}>
     <section class="rounded-lg border bg-card p-5 shadow-sm sm:p-7">
-      <p class="font-mono text-xs uppercase text-primary">Base network</p>
-      <h1 class="mt-2 text-3xl font-semibold">Pay {amount} USDC</h1>
-      <p class="mt-2 text-sm leading-6 text-muted-foreground">Send the exact amount below using native USDC on Base. Transfers on other networks or using another token cannot be detected.</p>
-      <img class="mx-auto mt-6 aspect-square w-full max-w-64 rounded-lg border bg-white p-3" src={qr} alt="Base USDC receiving address QR code" />
-      <p class="mt-2 text-center text-xs leading-5 text-muted-foreground">The QR code contains the receiving address only. Select Base and enter the exact USDC amount shown below.</p>
-      <dl class="mt-6 grid gap-4 text-sm">
-        <div><dt class="font-medium">Exact amount</dt><dd class="mt-1 flex items-center gap-2"><code class="min-w-0 flex-1 break-all rounded-md bg-muted px-3 py-2 text-base">{amount} USDC</code><button class="rounded-md border px-3 py-2 font-medium hover:bg-muted" type="button" data-copy={amount}>Copy</button></dd></div>
-        <div><dt class="font-medium">Receiving address</dt><dd class="mt-1 flex items-center gap-2"><code class="min-w-0 flex-1 break-all rounded-md bg-muted px-3 py-2 text-xs">{payment.walletAddress}</code><button class="rounded-md border px-3 py-2 font-medium hover:bg-muted" type="button" data-copy={payment.walletAddress}>Copy</button></dd></div>
-        <div class="grid grid-cols-2 gap-3"><div><dt class="text-muted-foreground">Network</dt><dd class="mt-1 font-medium">Base mainnet</dd></div><div><dt class="text-muted-foreground">Confirmations</dt><dd class="mt-1 font-medium">{payment.requiredConfirmations ?? 1} blocks</dd></div></div>
-      </dl>
-      <a class="mt-5 inline-flex h-11 w-full items-center justify-center rounded-md border font-medium hover:bg-muted" href={transferUri}>Open wallet</a>
-      <div class="mt-5 rounded-md bg-muted p-4 text-sm"><strong data-status-title>Waiting for payment</strong><p class="mt-1 text-muted-foreground" data-status-message>Keep this page open. Status updates automatically.</p><p class="mt-3 font-mono text-base font-semibold tabular-nums" data-countdown>{initialRemainingSeconds > 0 ? `Payment window: ${initialCountdown}` : 'Payment window expired'}</p></div>
-      <p class="mt-4 text-xs leading-5 text-muted-foreground">Receipt: {support?.email ?? order?.email}. Network fees and refunds are the payer and creator's responsibility.</p>
+      <p class="font-mono text-xs uppercase text-primary" data-network-label hidden={initiallyPaid}>{descriptor.networkLabel}</p>
+      <h1 class="mt-2 text-3xl font-semibold" data-page-title hidden={initiallyPaid}>{initiallyExpired ? 'Payment window expired' : `Pay ${amount} ${descriptor.asset}`}</h1>
+
+      <div data-payment-instructions hidden={initiallyExpired || initiallyPaid}>
+        <p class="mt-2 text-sm leading-6 text-muted-foreground">Send the exact amount below using {descriptor.asset} on {descriptor.networkLabel}. Transfers on other networks or using another token cannot be detected.</p>
+        <img class="mx-auto mt-6 aspect-square w-full max-w-64 rounded-lg border bg-white p-3" src={qr} alt={`${descriptor.networkLabel} ${descriptor.asset} transfer QR code`} />
+        <p class="mt-2 text-center text-xs leading-5 text-muted-foreground">The QR code includes the network, token, receiving address, and exact amount.</p>
+        <dl class="mt-6 grid gap-4 text-sm">
+          <div><dt class="font-medium">Exact amount</dt><dd class="mt-1 flex items-center gap-2"><code class="min-w-0 flex-1 break-all rounded-md bg-muted px-3 py-2 text-base">{amount} {descriptor.asset}</code><button class="rounded-md border px-3 py-2 font-medium hover:bg-muted" type="button" data-copy={amount}>Copy</button></dd></div>
+          <div><dt class="font-medium">Receiving address</dt><dd class="mt-1 flex items-center gap-2"><code class="min-w-0 flex-1 break-all rounded-md bg-muted px-3 py-2 text-xs">{payment.walletAddress}</code><button class="rounded-md border px-3 py-2 font-medium hover:bg-muted" type="button" data-copy={payment.walletAddress}>Copy</button></dd></div>
+          <div class="grid grid-cols-2 gap-3"><div><dt class="text-muted-foreground">Network</dt><dd class="mt-1 font-medium">{descriptor.networkLabel}</dd></div><div><dt class="text-muted-foreground">Confirmation</dt><dd class="mt-1 font-medium">{confirmationLabel}</dd></div></div>
+        </dl>
+        <a class="mt-5 inline-flex h-11 w-full items-center justify-center rounded-md border font-medium hover:bg-muted" href={transferUri}>Open wallet</a>
+      </div>
+
+      <div class="mt-5 rounded-md bg-muted p-4 text-sm" data-active-status hidden={initiallyExpired || initiallyPaid}>
+        <strong data-status-title>Waiting for payment</strong>
+        <p class="mt-1 text-muted-foreground" data-status-message>Keep this page open. Status updates automatically.</p>
+        <p class="mt-3 font-mono text-base font-semibold tabular-nums" data-countdown>Payment window: {initialCountdown}</p>
+      </div>
+
+      <div class="mt-5" data-expired-state hidden={!initiallyExpired} aria-live="polite">
+        <p class="font-medium">Do not send this payment.</p>
+        <p class="mt-2 text-sm leading-6 text-muted-foreground" data-expired-message>{stillReconciling ? 'If you transferred before the deadline, this page will continue checking briefly.' : 'No qualifying transfer was found. Start a new checkout to receive a new payment amount.'}</p>
+        <a class="mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-md bg-primary px-4 py-2 text-center font-medium text-primary-foreground hover:bg-primary/90" href="/">{retryLabel}</a>
+      </div>
+
+      <div class="py-5 text-center sm:py-8" data-paid-state hidden={!initiallyPaid} role="status" aria-live="polite" tabindex="-1">
+        <div class="mx-auto grid size-20 place-items-center rounded-full bg-primary/10 text-primary sm:size-24">
+          <CircleCheck className="size-12 stroke-[1.8] sm:size-14" aria-hidden="true" />
+        </div>
+        <p class="mt-6 font-mono text-xs uppercase text-primary">Payment complete</p>
+        <h1 class="mt-2 text-3xl font-semibold sm:text-4xl">You're all set</h1>
+        <p class="mx-auto mt-3 max-w-sm text-sm leading-6 text-muted-foreground">We received and confirmed your payment. No further action is needed.</p>
+        <dl class="mt-7 divide-y rounded-md border text-left text-sm">
+          <div class="flex items-center justify-between gap-4 px-4 py-3"><dt class="text-muted-foreground">Amount paid</dt><dd class="font-medium">{amount} {descriptor.asset}</dd></div>
+          <div class="flex items-center justify-between gap-4 px-4 py-3"><dt class="text-muted-foreground">Network</dt><dd class="font-medium">{descriptor.networkLabel}</dd></div>
+          <div class="grid gap-1 px-4 py-3"><dt class="text-muted-foreground">Receipt sent to</dt><dd class="break-all font-medium">{receiptEmail}</dd></div>
+        </dl>
+        <a class="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-md bg-primary px-4 py-2 text-center font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50" href={successHref}>{successLabel}</a>
+      </div>
+
+      <p class="mt-4 text-xs leading-5 text-muted-foreground" data-payment-footnote hidden={initiallyPaid}>Receipt: {receiptEmail}. Network fees and refunds are the payer and creator's responsibility.</p>
     </section>
   </main>
   <script>
     const container = document.querySelector<HTMLElement>('[data-payment]');
-    const title = document.querySelector<HTMLElement>('[data-status-title]');
-    const message = document.querySelector<HTMLElement>('[data-status-message]');
+    const pageTitle = document.querySelector<HTMLElement>('[data-page-title]');
+    const networkLabel = document.querySelector<HTMLElement>('[data-network-label]');
+    const instructions = document.querySelector<HTMLElement>('[data-payment-instructions]');
+    const activeStatus = document.querySelector<HTMLElement>('[data-active-status]');
+    const statusTitle = document.querySelector<HTMLElement>('[data-status-title]');
+    const statusMessage = document.querySelector<HTMLElement>('[data-status-message]');
     const countdown = document.querySelector<HTMLElement>('[data-countdown]');
-    document.querySelectorAll<HTMLButtonElement>('[data-copy]').forEach((button) => button.addEventListener('click', async () => { await navigator.clipboard.writeText(button.dataset.copy ?? ''); button.textContent = 'Copied'; setTimeout(() => { button.textContent = 'Copy'; }, 1200); }));
-    let finished = false;
+    const expiredState = document.querySelector<HTMLElement>('[data-expired-state]');
+    const expiredMessage = document.querySelector<HTMLElement>('[data-expired-message]');
+    const paidState = document.querySelector<HTMLElement>('[data-paid-state]');
+    const paymentFootnote = document.querySelector<HTMLElement>('[data-payment-footnote]');
+
+    document.querySelectorAll<HTMLButtonElement>('[data-copy]').forEach((button) => button.addEventListener('click', async () => {
+      await navigator.clipboard.writeText(button.dataset.copy ?? '');
+      button.textContent = 'Copied';
+      setTimeout(() => { button.textContent = 'Copy'; }, 1200);
+    }));
+
+    let finished = container?.dataset.initialStatus === 'paid' || container?.dataset.initialStatus === 'expired';
+    let paymentWindowExpired = false;
+
+    const showReconciling = () => {
+      paymentWindowExpired = true;
+      if (networkLabel) networkLabel.hidden = false;
+      if (pageTitle) {
+        pageTitle.hidden = false;
+        pageTitle.textContent = 'Payment window expired';
+      }
+      if (instructions) instructions.hidden = true;
+      if (activeStatus) activeStatus.hidden = true;
+      if (paidState) paidState.hidden = true;
+      if (expiredState) expiredState.hidden = false;
+      if (paymentFootnote) paymentFootnote.hidden = false;
+      if (expiredMessage) expiredMessage.textContent = 'If you transferred before the deadline, this page will continue checking briefly.';
+    };
+
+    const showPaid = () => {
+      if (networkLabel) networkLabel.hidden = true;
+      if (pageTitle) pageTitle.hidden = true;
+      if (instructions) instructions.hidden = true;
+      if (activeStatus) activeStatus.hidden = true;
+      if (expiredState) expiredState.hidden = true;
+      if (paymentFootnote) paymentFootnote.hidden = true;
+      if (paidState) {
+        paidState.hidden = false;
+        paidState.focus({ preventScroll: true });
+      }
+    };
+
+    const showExpired = () => {
+      showReconciling();
+      if (expiredMessage) expiredMessage.textContent = 'No qualifying transfer was found. Start a new checkout to receive a new payment amount.';
+    };
+
     const updateCountdown = () => {
       const remainingSeconds = Math.max(0, Math.ceil((new Date(container?.dataset.expires ?? '').getTime() - Date.now()) / 1000));
-      if (!countdown) return;
       if (remainingSeconds === 0) {
-        countdown.textContent = 'Payment window expired';
+        if (!paymentWindowExpired && container?.dataset.initialStatus === 'pending') showReconciling();
         return;
       }
+      if (!countdown) return;
       const minutes = String(Math.floor(remainingSeconds / 60)).padStart(2, '0');
       const seconds = String(remainingSeconds % 60).padStart(2, '0');
       countdown.textContent = `Payment window: ${minutes}:${seconds}`;
     };
+
+    updateCountdown();
     const countdownTimer = setInterval(updateCountdown, 1000);
+    if (finished) clearInterval(countdownTimer);
+
     const refresh = async () => {
       if (!container?.dataset.reference || finished) return;
       try {
@@ -65,27 +160,26 @@ const qr = await QRCode.toDataURL(payment.walletAddress, { margin: 1, width: 320
         if (result.status === 'paid') {
           finished = true;
           clearInterval(countdownTimer);
-          if (title) title.textContent = 'Payment confirmed';
-          if (message) message.textContent = 'Your receipt and any download access will be available shortly.';
+          showPaid();
           return;
         }
         if (result.status === 'expired') {
           finished = true;
           clearInterval(countdownTimer);
-          if (countdown) countdown.textContent = 'Payment window expired';
-          if (title) title.textContent = 'Payment window expired';
-          if (message) message.textContent = 'Do not send this amount. Start a new checkout to receive a new payment amount.';
+          showExpired();
           return;
         }
-        if (result.transactionHash) {
-          if (title) title.textContent = 'Confirming transfer';
-          if (message) message.textContent = `${result.confirmations} of ${result.requiredConfirmations} confirmations received.`;
+        if (result.transactionHash && !paymentWindowExpired) {
+          if (statusTitle) statusTitle.textContent = 'Confirming transfer';
+          if (statusMessage) statusMessage.textContent = container.dataset.network === 'solana'
+            ? 'The transfer was found and is waiting for the required Solana commitment.'
+            : `${result.confirmations} of ${result.requiredConfirmations} confirmations received.`;
         }
       } finally {
         if (!finished) setTimeout(refresh, 5000);
       }
     };
-    updateCountdown();
+
     refresh();
   </script>
 </PublicPage>

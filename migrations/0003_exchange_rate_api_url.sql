@@ -1,0 +1,1 @@
+ALTER TABLE `site_settings` ADD `exchange_rate_api_url` text DEFAULT 'https://open.er-api.com/v6/latest/USD' NOT NULL;

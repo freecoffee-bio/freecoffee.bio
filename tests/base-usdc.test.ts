@@ -4,11 +4,15 @@ import {
   addressTopic,
   BASE_USDC_CONTRACT,
   BASE_USDC_TRANSFER_TOPIC,
+  CRYPTO_PAYMENT_WINDOW_MS,
+  CRYPTO_RECONCILIATION_WINDOW_MS,
   formatUsdc,
+  isUsdcPaymentWithinWindow,
   nextAvailableUsdcAmount,
   normalizeEvmAddress,
   parseRequiredConfirmations,
   parseUsdcLog,
+  usdcAmountCandidates,
   validateBaseRpcUrl,
 } from '../src/server/base-usdc-core';
 
@@ -76,6 +80,30 @@ test('rejects removed and unrelated transfer logs', () => {
   assert.equal(parseUsdcLog(transferLog({ address: '0x0000000000000000000000000000000000000001' })), null);
   assert.equal(parseUsdcLog(transferLog({ topics: [`0x${'00'.repeat(32)}`, addressTopic(recipient), addressTopic(recipient)] })), null);
   assert.equal(parseUsdcLog(transferLog({ transactionHash: '0x1234' })), null);
+});
+
+test('keeps payment validity and post-expiry reconciliation windows separate', () => {
+  assert.equal(CRYPTO_PAYMENT_WINDOW_MS, 20 * 60_000);
+  assert.equal(CRYPTO_RECONCILIATION_WINDOW_MS, 30 * 60_000);
+});
+
+test('accepts transfers only inside the payment window at chain timestamp precision', () => {
+  const createdAt = 1_000_500;
+  const expiresAt = 2_000_500;
+  assert.equal(isUsdcPaymentWithinWindow(1_000_000, createdAt, expiresAt), true);
+  assert.equal(isUsdcPaymentWithinWindow(2_000_000, createdAt, expiresAt), true);
+  assert.equal(isUsdcPaymentWithinWindow(999_000, createdAt, expiresAt), false);
+  assert.equal(isUsdcPaymentWithinWindow(2_001_000, createdAt, expiresAt), false);
+  assert.equal(isUsdcPaymentWithinWindow(Number.NaN, createdAt, expiresAt), false);
+});
+
+test('builds the fixed set of reservable USDC amount slots', () => {
+  const amounts = usdcAmountCandidates(1_000_000);
+  assert.equal(amounts.length, 100);
+  assert.equal(amounts[0], 1_000_000);
+  assert.equal(amounts[99], 1_099_000);
+  assert.equal(new Set(amounts).size, amounts.length);
+  assert.throws(() => usdcAmountCandidates(Number.MAX_SAFE_INTEGER), /supported range/);
 });
 
 test('keeps concurrent USDC payment identifiers below a ten-cent premium', () => {

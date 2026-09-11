@@ -8,6 +8,27 @@
       "when": 1789112616194,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1789137071206,
+      "tag": "0001_fancy_chronomancer",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1789143053624,
+      "tag": "0002_automatic_exchange_rates",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1789143967400,
+      "tag": "0003_exchange_rate_api_url",
+      "breakpoints": true
     }
   ]
 }

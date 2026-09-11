@@ -4,6 +4,7 @@ import { createDb } from '../db';
 import { getPaymentSettings } from './payments';
 import { creatorPageSettings, creatorPaymentAccounts, creatorProfiles, creatorCryptoWallets, galleryItems, posts, products as productsTable, smtpSettings, siteSettings, supportTransactions } from '../db/schema';
 import { activateEmailProvider, getEmailDeliverySettings } from './email-config';
+import { getEnabledChainProviders } from './chain-payments';
 
 
 export async function getDefaultPublicCreator(includeDrafts = false) {
@@ -16,7 +17,7 @@ export async function getPublicCreator(creatorId: number, includeDrafts = false)
   const db = createDb(env.DB);
   const [creator] = await db.select().from(creatorProfiles).where(eq(creatorProfiles.id, creatorId)).limit(1);
   if (!creator) return null;
-  const [page, products, gallery, publishedPosts, supporters, supportTotal, settings, baseUsdcWallet] = await Promise.all([
+  const [page, products, gallery, publishedPosts, supporters, supportTotal, settings, chainProviders, paymentSettings] = await Promise.all([
     db.select().from(creatorPageSettings).where(eq(creatorPageSettings.creatorId, creator.id)).limit(1),
     db.select().from(productsTable).where(and(eq(productsTable.creatorId, creator.id), eq(productsTable.status, 'published'))),
     db.select().from(galleryItems).where(includeDrafts ? eq(galleryItems.creatorId, creator.id) : and(eq(galleryItems.creatorId, creator.id), eq(galleryItems.status, 'published'))).orderBy(galleryItems.sortOrder),
@@ -24,7 +25,8 @@ export async function getPublicCreator(creatorId: number, includeDrafts = false)
     db.select({ name: supportTransactions.displayName, message: supportTransactions.message, amount: supportTransactions.amount, createdAt: supportTransactions.createdAt, anonymous: supportTransactions.anonymous }).from(supportTransactions).where(and(eq(supportTransactions.creatorId, creator.id), eq(supportTransactions.status, 'paid'))).orderBy(desc(supportTransactions.createdAt)).limit(10),
     db.select({ amount: sql<number>`coalesce(sum(${supportTransactions.amount}), 0)` }).from(supportTransactions).where(and(eq(supportTransactions.creatorId, creator.id), eq(supportTransactions.status, 'paid'))),
     db.select({ currency: siteSettings.currency, taxRate: siteSettings.taxRate }).from(siteSettings).where(eq(siteSettings.id, 1)).limit(1),
-    db.select({ enabled: creatorCryptoWallets.enabled }).from(creatorCryptoWallets).where(and(eq(creatorCryptoWallets.creatorId, creator.id), eq(creatorCryptoWallets.network, 'base'), eq(creatorCryptoWallets.asset, 'USDC'))).limit(1),
+    getEnabledChainProviders(creator.id),
+    getPaymentSettings(),
   ]);
   return {
     creator,
@@ -36,9 +38,11 @@ export async function getPublicCreator(creatorId: number, includeDrafts = false)
     supportGoal: page[0]?.supportGoalAmount && page[0].supportGoalAmount > 0 ? { enabled: page[0].supportGoalEnabled, title: page[0].supportGoalTitle || 'Support goal', amount: page[0].supportGoalAmount, description: page[0].supportGoalDescription, raised: Math.max(0, Math.round((supportTotal[0]?.amount ?? 0) * (10000 - (settings[0]?.taxRate ?? 0)) / 10000)) } : null,
     currency: settings[0]?.currency ?? 'USD',
     paymentProviders: {
-      stripe: Boolean((await getPaymentSettings()).stripeSecretKey && (await getPaymentSettings()).stripeWebhookSecret),
-      paypal: Boolean((await getPaymentSettings()).paypalClientId && (await getPaymentSettings()).paypalClientSecret && (await getPaymentSettings()).paypalWebhookId),
-      baseUsdc: baseUsdcWallet[0]?.enabled === true,
+      stripe: Boolean(paymentSettings.stripeSecretKey && paymentSettings.stripeWebhookSecret),
+      paypal: Boolean(paymentSettings.paypalClientId && paymentSettings.paypalClientSecret && paymentSettings.paypalWebhookId),
+      baseUsdc: chainProviders['base-usdc'],
+      solanaUsdc: chainProviders['solana-usdc'],
+      solanaUsdt: chainProviders['solana-usdt'],
     },
   };
 }

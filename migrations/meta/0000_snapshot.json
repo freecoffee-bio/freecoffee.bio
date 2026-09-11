@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "477bbaa2-933f-4e11-a032-29208e09a894",
+  "id": "6cdfdf29-840e-42ec-8489-70e1ace330e3",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "account": {
@@ -284,6 +284,22 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "rpc_url": {
+          "name": "rpc_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'https://mainnet.base.org'"
+        },
+        "required_confirmations": {
+          "name": "required_confirmations",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 3
         },
         "enabled": {
           "name": "enabled",
@@ -1884,6 +1900,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "integer",
@@ -1916,10 +1939,27 @@
           ],
           "isUnique": true
         },
+        "payment_records_network_transaction_unique": {
+          "name": "payment_records_network_transaction_unique",
+          "columns": [
+            "network",
+            "transaction_hash"
+          ],
+          "isUnique": true
+        },
         "payment_records_reference_id_idx": {
           "name": "payment_records_reference_id_idx",
           "columns": [
             "reference_id"
+          ],
+          "isUnique": false
+        },
+        "payment_records_crypto_pending_idx": {
+          "name": "payment_records_crypto_pending_idx",
+          "columns": [
+            "provider",
+            "status",
+            "expires_at"
           ],
           "isUnique": false
         },

@@ -101,14 +101,14 @@ export function PaymentAccountDialog({ provider, connected, paypalSandbox = fals
     <div className="flex items-center gap-2">
       <Button type="button" variant="outline" onClick={() => setOpen(true)} disabled={busy}>
         {connected ? <KeyRound data-icon="inline-start" /> : <Link2 data-icon="inline-start" />}
-        {connected ? 'Update credentials' : `Connect ${details.name}`}
+        {connected ? 'Update settings' : `Connect ${details.name}`}
       </Button>
       {connected && <Button type="button" variant="ghost" onClick={() => void disconnect()} disabled={busy} aria-label={`Disconnect ${details.name}`}><Unlink data-icon="inline-start" /> Disconnect</Button>}
     </div>
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{connected ? `Update ${details.name} credentials` : `Connect ${details.name}`}</DialogTitle>
+          <DialogTitle>{connected ? `Update ${details.name} settings` : `Connect ${details.name}`}</DialogTitle>
           <DialogDescription>{details.description} Existing saved credentials are not displayed; enter all fields to replace them.</DialogDescription>
           <p className="rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">Webhook endpoint: <code className="break-all text-foreground">{details.webhookPath}</code>. Configure the full site URL plus this path in the provider dashboard.</p>
         </DialogHeader>

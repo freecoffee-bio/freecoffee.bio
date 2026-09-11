@@ -8,8 +8,9 @@ import { buildPayPalCheckoutPayload, buildStripeCheckoutPayload, paypalApiBase }
 import { convertCurrency } from './exchange-rate';
 import { amountToMinor, calculateTax, formatMoney, isCurrency, type Currency } from './money';
 import { capturePayPalReference, type PayPalCapture } from './paypal-capture';
+import { createBaseUsdcQuote } from './base-usdc';
 
-export type PaymentProviderName = 'stripe' | 'paypal';
+export type PaymentProviderName = 'stripe' | 'paypal' | 'base-usdc';
 
 type PaymentInput = { provider: PaymentProviderName; referenceId: string; amount: number; currency: Currency; description: string; returnUrl: string; cancelUrl: string; anonymous?: boolean };
 
@@ -69,16 +70,18 @@ export async function createSupportCheckout(input: { amount: number; currency: C
   const settings = await getPaymentSettings();
   if (input.provider === 'stripe' && (!settings?.stripeSecretKey || !settings.stripeWebhookSecret)) throw new Error('Stripe checkout and webhook credentials are not fully configured.');
   if (input.provider === 'paypal' && (!settings?.paypalClientId || !settings.paypalClientSecret || !settings.paypalWebhookId)) throw new Error('PayPal checkout and webhook credentials are not fully configured.');
+  const cryptoQuote = input.provider === 'base-usdc' ? await createBaseUsdcQuote({ creatorId: creator.id, amount: input.amount, currency: input.currency }) : null;
   if (!isCurrency(input.currency) || !Number.isSafeInteger(input.amount) || input.amount < (page?.minimumSupportAmount ?? 100) || input.amount > 100000000) throw new Error('Support amount is below the configured minimum.');
   if (!/^\S+@\S+\.\S+$/.test(input.email) || input.email.length > 320) throw new Error('Enter a valid receipt email.');
   const id = crypto.randomUUID();
   const now = new Date();
   await db.insert(supportTransactions).values({ id, creatorId: creator.id, supporterUserId: input.supporterUserId ?? null, supporterEmail: input.email.toLowerCase(), amount: input.amount, currency: input.currency.toUpperCase(), status: 'pending', message: input.message?.slice(0, 240) || null, displayName: input.displayName?.slice(0, 100) || null, anonymous: input.anonymous === true, provider: input.provider, createdAt: now });
-  await db.insert(paymentRecords).values({ id: crypto.randomUUID(), kind: 'support', referenceId: id, amount: input.amount, currency: input.currency.toUpperCase(), provider: input.provider, quotedAmount: input.amount, quotedCurrency: input.currency.toUpperCase(), status: 'pending', createdAt: now, updatedAt: now });
+  const expiresAt = cryptoQuote ? new Date(now.getTime() + 20 * 60_000) : null;
+  await db.insert(paymentRecords).values({ id: crypto.randomUUID(), kind: 'support', referenceId: id, amount: cryptoQuote?.amount ?? input.amount, currency: cryptoQuote ? 'USDC' : input.currency.toUpperCase(), provider: input.provider, quotedAmount: input.amount, quotedCurrency: input.currency.toUpperCase(), network: cryptoQuote ? 'base' : null, asset: cryptoQuote ? 'USDC' : null, walletAddress: cryptoQuote?.wallet.address ?? null, requiredConfirmations: cryptoQuote?.wallet.requiredConfirmations ?? null, expiresAt, status: 'pending', createdAt: now, updatedAt: now });
   try {
-    const checkout = input.provider === 'stripe' ? await createStripeCheckout({ provider: input.provider, referenceId: id, amount: input.amount, currency: input.currency, description: `Support ${creator.displayName}`, returnUrl: input.returnUrl.replace('{REFERENCE_ID}', id), cancelUrl: input.cancelUrl }) : await createPayPalCheckout({ provider: input.provider, referenceId: id, amount: input.amount, currency: input.currency, description: `Support ${creator.displayName}`, returnUrl: input.returnUrl.replace('{REFERENCE_ID}', id), cancelUrl: input.cancelUrl });
-    await db.update(supportTransactions).set({ providerPaymentId: checkout.providerPaymentId }).where(eq(supportTransactions.id, id));
-    await db.update(paymentRecords).set({ providerPaymentId: checkout.providerPaymentId, rawReference: checkout.requestPayload ?? null, updatedAt: new Date() }).where(and(eq(paymentRecords.referenceId, id), eq(paymentRecords.provider, input.provider)));
+    const checkout = cryptoQuote ? { providerPaymentId: '', url: `${input.returnUrl.replace('/support/success', '/pay').replace('?reference={REFERENCE_ID}', '')}/${id}`, requestPayload: JSON.stringify({ network: 'base', asset: 'USDC', address: cryptoQuote.wallet.address, amount: cryptoQuote.amount, expiresAt: expiresAt?.toISOString() }) } : input.provider === 'stripe' ? await createStripeCheckout({ provider: input.provider, referenceId: id, amount: input.amount, currency: input.currency, description: `Support ${creator.displayName}`, returnUrl: input.returnUrl.replace('{REFERENCE_ID}', id), cancelUrl: input.cancelUrl }) : await createPayPalCheckout({ provider: input.provider, referenceId: id, amount: input.amount, currency: input.currency, description: `Support ${creator.displayName}`, returnUrl: input.returnUrl.replace('{REFERENCE_ID}', id), cancelUrl: input.cancelUrl });
+    if (checkout.providerPaymentId) await db.update(supportTransactions).set({ providerPaymentId: checkout.providerPaymentId }).where(eq(supportTransactions.id, id));
+    await db.update(paymentRecords).set({ ...(checkout.providerPaymentId ? { providerPaymentId: checkout.providerPaymentId } : {}), rawReference: checkout.requestPayload ?? null, updatedAt: new Date() }).where(and(eq(paymentRecords.referenceId, id), eq(paymentRecords.provider, input.provider)));
     return { id, ...checkout };
   } catch (error) {
     await db.update(supportTransactions).set({ status: 'failed' }).where(eq(supportTransactions.id, id));
@@ -106,16 +109,17 @@ export async function createOrderCheckout(input: { productId: string; email: str
   const subtotal = product.price;
   const taxAmount = calculateTax(subtotal, settings.taxRate, currency);
   const totalAmount = subtotal + taxAmount;
-  const providerCurrencies: Record<PaymentProviderName, Currency[]> = { stripe: ['USD', 'CNY', 'EUR', 'GBP', 'JPY'], paypal: ['USD', 'EUR', 'GBP', 'JPY'] };
-  const settlementCurrency: Currency = providerCurrencies[input.provider].includes(currency) ? currency : 'USD';
+  const providerCurrencies: Record<Exclude<PaymentProviderName, 'base-usdc'>, Currency[]> = { stripe: ['USD', 'CNY', 'EUR', 'GBP', 'JPY'], paypal: ['USD', 'EUR', 'GBP', 'JPY'] };
+  const settlementCurrency: Currency = input.provider === 'base-usdc' ? 'USD' : providerCurrencies[input.provider].includes(currency) ? currency : 'USD';
   const settlement = settlementCurrency === currency ? { amount: totalAmount, rate: null, conversionRate: null } : await convertCurrency(totalAmount, currency, settlementCurrency);
+  const cryptoQuote = input.provider === 'base-usdc' ? await createBaseUsdcQuote({ creatorId: creator.id, amount: totalAmount, currency }) : null;
   await db.insert(orders).values({ id: orderId, creatorId: creator.id, buyerUserId: input.buyerUserId ?? null, buyerEmail: input.email.toLowerCase(), subtotalAmount: subtotal, taxRate: settings.taxRate, taxAmount, totalAmount, currency, settlementCurrency, settlementAmount: settlement.amount, exchangeRate: settlement.conversionRate, exchangeRateSource: settlement.rate?.source ?? null, exchangeRateAt: settlement.rate?.effectiveAt ?? null, status: 'pending', provider: input.provider, expiresAt: new Date(now.getTime() + 20 * 60_000), createdAt: now });
   await db.insert(orderItems).values({ orderId, productId: product.id, productName: product.name, quantity: 1, unitAmount: product.price });
-  await db.insert(paymentRecords).values({ id: crypto.randomUUID(), kind: 'order', referenceId: orderId, amount: settlement.amount, currency: settlementCurrency, quotedAmount: totalAmount, quotedCurrency: currency, provider: input.provider, status: 'pending', createdAt: now, updatedAt: now });
+  await db.insert(paymentRecords).values({ id: crypto.randomUUID(), kind: 'order', referenceId: orderId, amount: cryptoQuote?.amount ?? settlement.amount, currency: cryptoQuote ? 'USDC' : settlementCurrency, quotedAmount: totalAmount, quotedCurrency: currency, provider: input.provider, network: cryptoQuote ? 'base' : null, asset: cryptoQuote ? 'USDC' : null, walletAddress: cryptoQuote?.wallet.address ?? null, requiredConfirmations: cryptoQuote?.wallet.requiredConfirmations ?? null, expiresAt: cryptoQuote ? new Date(now.getTime() + 20 * 60_000) : null, status: 'pending', createdAt: now, updatedAt: now });
   try {
-    const checkout = input.provider === 'stripe' ? await createStripeCheckout({ provider: input.provider, referenceId: orderId, amount: settlement.amount, currency: settlementCurrency, description: product.name, returnUrl: input.returnUrl.replace('{REFERENCE_ID}', orderId), cancelUrl: input.cancelUrl }) : await createPayPalCheckout({ provider: input.provider, referenceId: orderId, amount: settlement.amount, currency: settlementCurrency, description: product.name, returnUrl: input.returnUrl.replace('{REFERENCE_ID}', orderId), cancelUrl: input.cancelUrl });
-    await db.update(orders).set({ providerPaymentId: checkout.providerPaymentId }).where(eq(orders.id, orderId));
-    await db.update(paymentRecords).set({ providerPaymentId: checkout.providerPaymentId, rawReference: checkout.requestPayload ?? null, updatedAt: new Date() }).where(and(eq(paymentRecords.referenceId, orderId), eq(paymentRecords.provider, input.provider)));
+    const checkout = cryptoQuote ? { providerPaymentId: '', url: `${input.returnUrl.replace('/shop/success', '/pay').replace('?reference={REFERENCE_ID}', '')}/${orderId}`, requestPayload: JSON.stringify({ network: 'base', asset: 'USDC', address: cryptoQuote.wallet.address, amount: cryptoQuote.amount, expiresAt: new Date(now.getTime() + 20 * 60_000).toISOString() }) } : input.provider === 'stripe' ? await createStripeCheckout({ provider: input.provider, referenceId: orderId, amount: settlement.amount, currency: settlementCurrency, description: product.name, returnUrl: input.returnUrl.replace('{REFERENCE_ID}', orderId), cancelUrl: input.cancelUrl }) : await createPayPalCheckout({ provider: input.provider, referenceId: orderId, amount: settlement.amount, currency: settlementCurrency, description: product.name, returnUrl: input.returnUrl.replace('{REFERENCE_ID}', orderId), cancelUrl: input.cancelUrl });
+    if (checkout.providerPaymentId) await db.update(orders).set({ providerPaymentId: checkout.providerPaymentId }).where(eq(orders.id, orderId));
+    await db.update(paymentRecords).set({ ...(checkout.providerPaymentId ? { providerPaymentId: checkout.providerPaymentId } : {}), rawReference: checkout.requestPayload ?? null, updatedAt: new Date() }).where(and(eq(paymentRecords.referenceId, orderId), eq(paymentRecords.provider, input.provider)));
     return { id: orderId, ...checkout };
   } catch (error) {
     await db.update(orders).set({ status: 'failed' }).where(eq(orders.id, orderId));

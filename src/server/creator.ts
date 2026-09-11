@@ -16,7 +16,7 @@ export async function getPublicCreator(creatorId: number, includeDrafts = false)
   const db = createDb(env.DB);
   const [creator] = await db.select().from(creatorProfiles).where(eq(creatorProfiles.id, creatorId)).limit(1);
   if (!creator) return null;
-  const [page, products, gallery, publishedPosts, supporters, supportTotal, settings] = await Promise.all([
+  const [page, products, gallery, publishedPosts, supporters, supportTotal, settings, baseUsdcWallet] = await Promise.all([
     db.select().from(creatorPageSettings).where(eq(creatorPageSettings.creatorId, creator.id)).limit(1),
     db.select().from(productsTable).where(and(eq(productsTable.creatorId, creator.id), eq(productsTable.status, 'published'))),
     db.select().from(galleryItems).where(includeDrafts ? eq(galleryItems.creatorId, creator.id) : and(eq(galleryItems.creatorId, creator.id), eq(galleryItems.status, 'published'))).orderBy(galleryItems.sortOrder),
@@ -24,6 +24,7 @@ export async function getPublicCreator(creatorId: number, includeDrafts = false)
     db.select({ name: supportTransactions.displayName, message: supportTransactions.message, amount: supportTransactions.amount, createdAt: supportTransactions.createdAt, anonymous: supportTransactions.anonymous }).from(supportTransactions).where(and(eq(supportTransactions.creatorId, creator.id), eq(supportTransactions.status, 'paid'))).orderBy(desc(supportTransactions.createdAt)).limit(10),
     db.select({ amount: sql<number>`coalesce(sum(${supportTransactions.amount}), 0)` }).from(supportTransactions).where(and(eq(supportTransactions.creatorId, creator.id), eq(supportTransactions.status, 'paid'))),
     db.select({ currency: siteSettings.currency, taxRate: siteSettings.taxRate }).from(siteSettings).where(eq(siteSettings.id, 1)).limit(1),
+    db.select({ enabled: creatorCryptoWallets.enabled }).from(creatorCryptoWallets).where(and(eq(creatorCryptoWallets.creatorId, creator.id), eq(creatorCryptoWallets.network, 'base'), eq(creatorCryptoWallets.asset, 'USDC'))).limit(1),
   ]);
   return {
     creator,
@@ -37,6 +38,7 @@ export async function getPublicCreator(creatorId: number, includeDrafts = false)
     paymentProviders: {
       stripe: Boolean((await getPaymentSettings()).stripeSecretKey && (await getPaymentSettings()).stripeWebhookSecret),
       paypal: Boolean((await getPaymentSettings()).paypalClientId && (await getPaymentSettings()).paypalClientSecret && (await getPaymentSettings()).paypalWebhookId),
+      baseUsdc: baseUsdcWallet[0]?.enabled === true,
     },
   };
 }

@@ -8,7 +8,7 @@ import { convertCurrency } from '../../../server/exchange-rate';
 import { calculateTax, formatMoney, isCurrency, type Currency } from '../../../server/money';
 import { publicError, requestId } from '../../../server/http';
 
-const providerCurrencies: Record<string, Currency[]> = { stripe: ['USD', 'CNY', 'EUR', 'GBP', 'JPY'], paypal: ['USD', 'EUR', 'GBP', 'JPY'] };
+const providerCurrencies: Record<string, Currency[]> = { stripe: ['USD', 'CNY', 'EUR', 'GBP', 'JPY'], paypal: ['USD', 'EUR', 'GBP', 'JPY'], 'base-usdc': ['USD'] };
 
 export const GET: APIRoute = async ({ request }) => {
   const id = requestId(request);

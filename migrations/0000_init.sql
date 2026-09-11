@@ -40,6 +40,8 @@ CREATE TABLE `creator_crypto_wallets` (
 	`network` text NOT NULL,
 	`asset` text NOT NULL,
 	`address` text NOT NULL,
+	`rpc_url` text DEFAULT 'https://mainnet.base.org' NOT NULL,
+	`required_confirmations` integer DEFAULT 3 NOT NULL,
 	`enabled` integer DEFAULT false NOT NULL,
 	`created_at` integer NOT NULL,
 	`updated_at` integer NOT NULL,
@@ -272,6 +274,7 @@ CREATE TABLE `payment_records` (
 	`required_confirmations` integer,
 	`quoted_amount` integer,
 	`quoted_currency` text,
+	`expires_at` integer,
 	`created_at` integer NOT NULL,
 	`updated_at` integer NOT NULL,
 	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE set null
@@ -279,7 +282,9 @@ CREATE TABLE `payment_records` (
 --> statement-breakpoint
 CREATE UNIQUE INDEX `payment_records_provider_reference_unique` ON `payment_records` (`provider`,`reference_id`);--> statement-breakpoint
 CREATE UNIQUE INDEX `payment_records_provider_payment_unique` ON `payment_records` (`provider`,`provider_payment_id`);--> statement-breakpoint
+CREATE UNIQUE INDEX `payment_records_network_transaction_unique` ON `payment_records` (`network`,`transaction_hash`);--> statement-breakpoint
 CREATE INDEX `payment_records_reference_id_idx` ON `payment_records` (`reference_id`);--> statement-breakpoint
+CREATE INDEX `payment_records_crypto_pending_idx` ON `payment_records` (`provider`,`status`,`expires_at`);--> statement-breakpoint
 CREATE INDEX `payment_records_user_id_idx` ON `payment_records` (`user_id`);--> statement-breakpoint
 CREATE TABLE `posts` (
 	`id` text PRIMARY KEY NOT NULL,

@@ -1,0 +1,91 @@
+---
+import QRCode from 'qrcode';
+import { and, eq } from 'drizzle-orm';
+import { env } from 'cloudflare:workers';
+import PublicPage from '../../layouts/public-page.astro';
+import { createDb } from '../../db';
+import { orders, paymentRecords, supportTransactions } from '../../db/schema';
+import { formatUsdc } from '../../server/base-usdc';
+
+const referenceId = Astro.params.referenceId ?? '';
+const db = createDb(env.DB);
+const [payment] = await db.select().from(paymentRecords).where(and(eq(paymentRecords.referenceId, referenceId), eq(paymentRecords.provider, 'base-usdc'))).limit(1);
+if (!payment?.walletAddress || !payment.expiresAt) return new Response('Not Found', { status: 404 });
+const [support] = payment.kind === 'support' ? await db.select({ email: supportTransactions.supporterEmail }).from(supportTransactions).where(eq(supportTransactions.id, referenceId)).limit(1) : [];
+const [order] = payment.kind === 'order' ? await db.select({ email: orders.buyerEmail }).from(orders).where(eq(orders.id, referenceId)).limit(1) : [];
+const amount = formatUsdc(payment.amount);
+const initialRemainingSeconds = Math.max(0, Math.ceil((payment.expiresAt.getTime() - Date.now()) / 1000));
+const initialCountdown = `${String(Math.floor(initialRemainingSeconds / 60)).padStart(2, '0')}:${String(initialRemainingSeconds % 60).padStart(2, '0')}`;
+const transferUri = `ethereum:0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913@8453/transfer?address=${payment.walletAddress}&uint256=${payment.amount}`;
+const qr = await QRCode.toDataURL(payment.walletAddress, { margin: 1, width: 320, errorCorrectionLevel: 'M' });
+---
+<PublicPage title="Pay with USDC" description="Complete a Base USDC payment" brandName="FreeCoffee.bio">
+  <main class="mx-auto w-full max-w-xl px-4 py-8 sm:py-12" data-payment data-reference={referenceId} data-expires={payment.expiresAt.toISOString()}>
+    <section class="rounded-lg border bg-card p-5 shadow-sm sm:p-7">
+      <p class="font-mono text-xs uppercase text-primary">Base network</p>
+      <h1 class="mt-2 text-3xl font-semibold">Pay {amount} USDC</h1>
+      <p class="mt-2 text-sm leading-6 text-muted-foreground">Send the exact amount below using native USDC on Base. Transfers on other networks or using another token cannot be detected.</p>
+      <img class="mx-auto mt-6 aspect-square w-full max-w-64 rounded-lg border bg-white p-3" src={qr} alt="Base USDC receiving address QR code" />
+      <p class="mt-2 text-center text-xs leading-5 text-muted-foreground">The QR code contains the receiving address only. Select Base and enter the exact USDC amount shown below.</p>
+      <dl class="mt-6 grid gap-4 text-sm">
+        <div><dt class="font-medium">Exact amount</dt><dd class="mt-1 flex items-center gap-2"><code class="min-w-0 flex-1 break-all rounded-md bg-muted px-3 py-2 text-base">{amount} USDC</code><button class="rounded-md border px-3 py-2 font-medium hover:bg-muted" type="button" data-copy={amount}>Copy</button></dd></div>
+        <div><dt class="font-medium">Receiving address</dt><dd class="mt-1 flex items-center gap-2"><code class="min-w-0 flex-1 break-all rounded-md bg-muted px-3 py-2 text-xs">{payment.walletAddress}</code><button class="rounded-md border px-3 py-2 font-medium hover:bg-muted" type="button" data-copy={payment.walletAddress}>Copy</button></dd></div>
+        <div class="grid grid-cols-2 gap-3"><div><dt class="text-muted-foreground">Network</dt><dd class="mt-1 font-medium">Base mainnet</dd></div><div><dt class="text-muted-foreground">Confirmations</dt><dd class="mt-1 font-medium">{payment.requiredConfirmations ?? 1} blocks</dd></div></div>
+      </dl>
+      <a class="mt-5 inline-flex h-11 w-full items-center justify-center rounded-md border font-medium hover:bg-muted" href={transferUri}>Open wallet</a>
+      <div class="mt-5 rounded-md bg-muted p-4 text-sm"><strong data-status-title>Waiting for payment</strong><p class="mt-1 text-muted-foreground" data-status-message>Keep this page open. Status updates automatically.</p><p class="mt-3 font-mono text-base font-semibold tabular-nums" data-countdown>{initialRemainingSeconds > 0 ? `Payment window: ${initialCountdown}` : 'Payment window expired'}</p></div>
+      <p class="mt-4 text-xs leading-5 text-muted-foreground">Receipt: {support?.email ?? order?.email}. Network fees and refunds are the payer and creator's responsibility.</p>
+    </section>
+  </main>
+  <script>
+    const container = document.querySelector<HTMLElement>('[data-payment]');
+    const title = document.querySelector<HTMLElement>('[data-status-title]');
+    const message = document.querySelector<HTMLElement>('[data-status-message]');
+    const countdown = document.querySelector<HTMLElement>('[data-countdown]');
+    document.querySelectorAll<HTMLButtonElement>('[data-copy]').forEach((button) => button.addEventListener('click', async () => { await navigator.clipboard.writeText(button.dataset.copy ?? ''); button.textContent = 'Copied'; setTimeout(() => { button.textContent = 'Copy'; }, 1200); }));
+    let finished = false;
+    const updateCountdown = () => {
+      const remainingSeconds = Math.max(0, Math.ceil((new Date(container?.dataset.expires ?? '').getTime() - Date.now()) / 1000));
+      if (!countdown) return;
+      if (remainingSeconds === 0) {
+        countdown.textContent = 'Payment window expired';
+        return;
+      }
+      const minutes = String(Math.floor(remainingSeconds / 60)).padStart(2, '0');
+      const seconds = String(remainingSeconds % 60).padStart(2, '0');
+      countdown.textContent = `Payment window: ${minutes}:${seconds}`;
+    };
+    const countdownTimer = setInterval(updateCountdown, 1000);
+    const refresh = async () => {
+      if (!container?.dataset.reference || finished) return;
+      try {
+        const response = await fetch(`/api/payments/status?reference=${encodeURIComponent(container.dataset.reference)}`);
+        const result = await response.json().catch(() => ({})) as { status?: string; confirmations?: number; requiredConfirmations?: number; transactionHash?: string };
+        if (!response.ok) return;
+        if (result.status === 'paid') {
+          finished = true;
+          clearInterval(countdownTimer);
+          if (title) title.textContent = 'Payment confirmed';
+          if (message) message.textContent = 'Your receipt and any download access will be available shortly.';
+          return;
+        }
+        if (result.status === 'expired') {
+          finished = true;
+          clearInterval(countdownTimer);
+          if (countdown) countdown.textContent = 'Payment window expired';
+          if (title) title.textContent = 'Payment window expired';
+          if (message) message.textContent = 'Do not send this amount. Start a new checkout to receive a new payment amount.';
+          return;
+        }
+        if (result.transactionHash) {
+          if (title) title.textContent = 'Confirming transfer';
+          if (message) message.textContent = `${result.confirmations} of ${result.requiredConfirmations} confirmations received.`;
+        }
+      } finally {
+        if (!finished) setTimeout(refresh, 5000);
+      }
+    };
+    updateCountdown();
+    refresh();
+  </script>
+</PublicPage>

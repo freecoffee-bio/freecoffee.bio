@@ -15,7 +15,7 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     const form = await request.formData();
     const body = Object.fromEntries(form.entries());
-    const provider = body.provider === 'paypal' ? 'paypal' : body.provider === 'stripe' ? 'stripe' : null;
+    const provider = body.provider === 'paypal' ? 'paypal' : body.provider === 'stripe' ? 'stripe' : body.provider === 'base-usdc' ? 'base-usdc' : null;
 
     const productId = typeof body.productId === 'string' ? body.productId : '';
     const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';

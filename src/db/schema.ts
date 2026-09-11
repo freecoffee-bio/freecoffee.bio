@@ -175,6 +175,8 @@ export const creatorCryptoWallets = sqliteTable('creator_crypto_wallets', {
   network: text('network').notNull(),
   asset: text('asset').notNull(),
   address: text('address').notNull(),
+  rpcUrl: text('rpc_url').notNull().default('https://mainnet.base.org'),
+  requiredConfirmations: integer('required_confirmations').notNull().default(3),
   enabled: integer('enabled', { mode: 'boolean' }).notNull().default(false),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
@@ -406,12 +408,15 @@ export const paymentRecords = sqliteTable('payment_records', {
   requiredConfirmations: integer('required_confirmations'),
   quotedAmount: integer('quoted_amount'),
   quotedCurrency: text('quoted_currency'),
+  expiresAt: integer('expires_at', { mode: 'timestamp' }),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 }, (table) => [
   uniqueIndex('payment_records_provider_reference_unique').on(table.provider, table.referenceId),
   uniqueIndex('payment_records_provider_payment_unique').on(table.provider, table.providerPaymentId),
+  uniqueIndex('payment_records_network_transaction_unique').on(table.network, table.transactionHash),
   index('payment_records_reference_id_idx').on(table.referenceId),
+  index('payment_records_crypto_pending_idx').on(table.provider, table.status, table.expiresAt),
   index('payment_records_user_id_idx').on(table.userId),
 ]);
 

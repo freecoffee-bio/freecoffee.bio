@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import * as z from 'zod'
 import { SiPaypal, SiStripe } from '@icons-pack/react-simple-icons'
-import { ArrowLeft, Coffee, Info, LockKeyhole, Mail, Send } from 'lucide-react'
+import { ArrowLeft, CircleDollarSign, Coffee, Info, LockKeyhole, Mail, Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field'
@@ -14,7 +14,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { showToast } from '@/lib/toast'
 
 type SupportFormProps = {
-  creator: { name: string; allowAnonymous?: boolean; paymentProviders?: { stripe: boolean; paypal: boolean } }
+  creator: { name: string; allowAnonymous?: boolean; paymentProviders?: { stripe: boolean; paypal: boolean; baseUsdc: boolean } }
   currentUser?: { name: string; email: string } | null
   defaultSupportAmount?: number
   suggestedSupportAmounts?: string | null
@@ -30,7 +30,7 @@ const schema = z.object({
   displayName: z.string().max(100, 'Display name is too long.').optional(),
   message: z.string().max(240, 'Message must be 240 characters or fewer.').optional(),
   anonymous: z.boolean(),
-  provider: z.enum(['stripe', 'paypal']),
+  provider: z.enum(['stripe', 'paypal', 'base-usdc']),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -47,8 +47,8 @@ export function SupportForm({ creator, currentUser, defaultSupportAmount = 500, 
   } catch {}
   const quickAmountValues = quickAmounts.map((value) => String(value / factor))
   const supportLabel = supportWording === 'tip' ? 'Tip' : 'Donate'
-  const providers = creator.paymentProviders ?? { stripe: false, paypal: false }
-  const availableProviders = (['stripe', 'paypal'] as const).filter((provider) => providers[provider])
+  const providers = creator.paymentProviders ?? { stripe: false, paypal: false, baseUsdc: false }
+  const availableProviders = (['stripe', 'paypal', 'base-usdc'] as const).filter((provider) => provider === 'base-usdc' ? providers.baseUsdc : providers[provider])
   const defaultProvider = availableProviders[0] ?? 'stripe'
   const [step, setStep] = useState<1 | 2>(1)
   const form = useForm<FormValues>({
@@ -107,7 +107,7 @@ export function SupportForm({ creator, currentUser, defaultSupportAmount = 500, 
       <FieldGroup className="mt-6">
         <Controller name="email" control={form.control} render={({ field, fieldState }) => <Field data-invalid={fieldState.invalid}><FieldLabel htmlFor="support-email">Email</FieldLabel><Input {...field} id="support-email" type="email" aria-invalid={fieldState.invalid} placeholder="you@example.com" />{fieldState.invalid && <FieldError errors={[fieldState.error]} />}</Field>} />
         <div className="rounded-lg bg-muted p-3 text-sm leading-5 text-muted-foreground"><p>You are supporting {creator.name} directly. Tips are voluntary and freely given.</p><p className="mt-2 flex items-center gap-1.5"><Mail className="size-4 shrink-0" /> Your receipt will be sent to this email.</p></div>
-        {!availableProviders.length ? <p className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">Payment is temporarily unavailable. Please try again later.</p> : <Controller name="provider" control={form.control} render={({ field, fieldState }) => <FieldSet data-invalid={fieldState.invalid}><FieldLegend variant="label">Payment method</FieldLegend><RadioGroup name={field.name} value={field.value} onValueChange={field.onChange} disabled={form.formState.isSubmitting} aria-invalid={fieldState.invalid} className="grid grid-cols-1 gap-2">{providers.stripe && <FieldLabel htmlFor="support-provider-stripe"><Field orientation="horizontal"><FieldContent><div className="flex items-center gap-2 font-medium"><SiStripe className="size-5 text-[#635BFF]" aria-hidden="true" />Credit or debit card</div><p className="text-sm font-normal text-muted-foreground">Pay securely with Stripe.</p></FieldContent><RadioGroupItem value="stripe" id="support-provider-stripe" /></Field></FieldLabel>}{providers.paypal && <FieldLabel htmlFor="support-provider-paypal"><Field orientation="horizontal"><FieldContent><div className="flex items-center gap-2 font-medium"><SiPaypal className="size-5 text-[#003087]" aria-hidden="true" />PayPal</div><p className="text-sm font-normal text-muted-foreground">Pay with your PayPal account.</p></FieldContent><RadioGroupItem value="paypal" id="support-provider-paypal" /></Field></FieldLabel>}</RadioGroup>{fieldState.invalid && <FieldError errors={[fieldState.error]} />}</FieldSet>} /> }
+        {!availableProviders.length ? <p className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">Payment is temporarily unavailable. Please try again later.</p> : <Controller name="provider" control={form.control} render={({ field, fieldState }) => <FieldSet data-invalid={fieldState.invalid}><FieldLegend variant="label">Payment method</FieldLegend><RadioGroup name={field.name} value={field.value} onValueChange={field.onChange} disabled={form.formState.isSubmitting} aria-invalid={fieldState.invalid} className="grid grid-cols-1 gap-2">{providers.stripe && <FieldLabel htmlFor="support-provider-stripe"><Field orientation="horizontal"><FieldContent><div className="flex items-center gap-2 font-medium"><SiStripe className="size-5 text-[#635BFF]" aria-hidden="true" />Credit or debit card</div><p className="text-sm font-normal text-muted-foreground">Pay securely with Stripe.</p></FieldContent><RadioGroupItem value="stripe" id="support-provider-stripe" /></Field></FieldLabel>}{providers.paypal && <FieldLabel htmlFor="support-provider-paypal"><Field orientation="horizontal"><FieldContent><div className="flex items-center gap-2 font-medium"><SiPaypal className="size-5 text-[#003087]" aria-hidden="true" />PayPal</div><p className="text-sm font-normal text-muted-foreground">Pay with your PayPal account.</p></FieldContent><RadioGroupItem value="paypal" id="support-provider-paypal" /></Field></FieldLabel>}{providers.baseUsdc && <FieldLabel htmlFor="support-provider-base-usdc"><Field orientation="horizontal"><FieldContent><div className="flex items-center gap-2 font-medium"><CircleDollarSign className="size-5 text-[#2775CA]" aria-hidden="true" />USDC on Base</div><p className="text-sm font-normal text-muted-foreground">Send USDC directly from your wallet on Base mainnet.</p></FieldContent><RadioGroupItem value="base-usdc" id="support-provider-base-usdc" /></Field></FieldLabel>}</RadioGroup>{fieldState.invalid && <FieldError errors={[fieldState.error]} />}</FieldSet>} /> }
         <Button className="w-full" size="lg" type="submit" disabled={form.formState.isSubmitting || !availableProviders.length}><span className="flex-1 text-left">{form.formState.isSubmitting ? 'Opening secure checkout...' : 'Continue to payment'}</span>{symbol}{amount.toFixed(decimals)}<Send className="size-4" data-icon="inline-end" /></Button>
         <p className="text-center text-xs text-muted-foreground">Payment is completed securely by the selected provider.</p>
       </FieldGroup>

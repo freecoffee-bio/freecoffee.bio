@@ -14,8 +14,8 @@ export const POST: APIRoute = async ({ request }) => {
   if (!rate.allowed) return publicError('Too many checkout attempts. Please try again shortly.', 429, id, rate.retryAfter);
   try {
     const body = await request.json() as Record<string, unknown>;
-    const provider = body.provider === 'paypal' ? 'paypal' : body.provider === 'stripe' ? 'stripe' : null;
-    if (!provider) return publicError('Choose Stripe or PayPal.', 400, id);
+    const provider = body.provider === 'paypal' ? 'paypal' : body.provider === 'stripe' ? 'stripe' : body.provider === 'base-usdc' ? 'base-usdc' : null;
+    if (!provider) return publicError('Choose an available payment method.', 400, id);
     const settings = await getSiteSettings();
     const amount = typeof body.amount === 'string' ? amountToMinor(body.amount, settings.currency) : -1;
     const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';

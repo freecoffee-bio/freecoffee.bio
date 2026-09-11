@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { REGEXP_ONLY_DIGITS } from 'input-otp'
 
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp'
@@ -21,19 +21,21 @@ export function TwoFactorCodeInput({
   autoSubmit?: boolean
 }) {
   const [value, setValue] = useState('')
+  const hiddenInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (autoSubmit && value.length === 6) hiddenInputRef.current?.form?.requestSubmit()
+  }, [autoSubmit, value])
 
   function handleChange(next: string) {
     setValue(next)
     onChange?.(next)
-    if (next.length === 6) {
-      onComplete?.(next)
-      if (autoSubmit) (document.activeElement as HTMLElement | null)?.closest('form')?.requestSubmit()
-    }
+    if (next.length === 6) onComplete?.(next)
   }
 
   return (
     <>
-      <input type="hidden" name={name} value={value} />
+      <input ref={hiddenInputRef} type="hidden" name={name} value={value} />
       <InputOTP
         id={id}
         maxLength={6}

@@ -1,5 +1,8 @@
 import type { APIRoute } from 'astro';
 import { createAuth } from '../../server/auth';
+import { eq } from 'drizzle-orm';
+import { createDb } from '../../db';
+import { users } from '../../db/schema';
 import { bindRoot, hasRoot } from '../../server/admin';
 import { ensureSiteSettings } from '../../server/site-settings';
 import { getAdminPath } from '../../lib/config';
@@ -52,6 +55,7 @@ export const POST: APIRoute = async ({ request, redirect }) => {
 
   const result = await createAuth().api.signUpEmail({ body: { name, email, password } });
   if (!result.user?.id || !(await bindRoot(result.user.id))) return new Response('Not Found', { status: 404 });
+  await createDb(env.DB).update(users).set({ emailVerified: true, updatedAt: new Date() }).where(eq(users.id, result.user.id));
   await ensureSiteSettings(siteUrl);
   const adminPath = getAdminPath((env as unknown as { ADMIN_PATH?: string }).ADMIN_PATH);
   return redirect(`/${adminPath}/login`, 303);

@@ -2,7 +2,7 @@
 import '../styles/global.css';
 import { ToastHost } from '../components/toast-host';
 import { TwoFactorCodeInput } from '../components/two-factor-code-input';
-import { Button } from '../components/ui/button';
+
 ---
 <html lang="en">
   <head>
@@ -21,10 +21,9 @@ import { Button } from '../components/ui/button';
         <form class="mt-7 space-y-4" id="two-factor-form">
           <label class="block text-sm font-medium">Verification code
             <div class="mt-2">
-              <TwoFactorCodeInput client:load />
+              <TwoFactorCodeInput client:load autoSubmit />
             </div>
           </label>
-          <Button className="h-11 w-full" type="submit">Verify and sign in</Button>
         </form>
       </section>
     </main>

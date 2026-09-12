@@ -13,11 +13,11 @@ import { releaseChainPaymentAmountSlot } from './chain-payment-slots';
 import { createChainPaymentQuote, isChainPaymentProvider, type ChainPaymentProvider, type ChainPaymentQuote } from './chain-payments';
 import { capturePayPalOrder, getPayPalAccessToken } from './paypal-api';
 import { getPaymentSettings, type PaymentSettings } from './payment-settings';
+import { isFiatPaymentProvider, supportsFiatProviderCurrency, type FiatPaymentProvider } from './payment-currencies';
 
 export { getPaymentSettings } from './payment-settings';
 
-export type PaymentProviderName = 'stripe' | 'paypal' | ChainPaymentProvider;
-type FiatPaymentProvider = Exclude<PaymentProviderName, ChainPaymentProvider>;
+export type PaymentProviderName = FiatPaymentProvider | ChainPaymentProvider;
 
 export function parsePaymentProvider(value: unknown): PaymentProviderName | null {
   if (value === 'stripe' || value === 'paypal') return value;
@@ -30,22 +30,14 @@ type PaymentInput = { provider: PaymentProviderName; referenceId: string; amount
 type PaymentCheckout = { url: string; providerPaymentId: string; requestPayload?: string };
 type PaymentSettlement = { amount: number; currency: Currency; rate: RateSnapshot | null; conversionRate: string | null };
 
-const FIAT_PROVIDER_CURRENCIES: Record<FiatPaymentProvider, readonly Currency[]> = {
-  stripe: ['USD', 'CNY', 'EUR', 'GBP', 'JPY'],
-  paypal: ['USD', 'EUR', 'GBP', 'JPY'],
-};
 
 function assertProviderConfigured(provider: PaymentProviderName, settings: PaymentSettings) {
   if (provider === 'stripe' && (!settings.stripeSecretKey || !settings.stripeWebhookSecret)) throw new Error('Stripe checkout and webhook credentials are not fully configured.');
   if (provider === 'paypal' && (!settings.paypalClientId || !settings.paypalClientSecret || !settings.paypalWebhookId)) throw new Error('PayPal checkout and webhook credentials are not fully configured.');
 }
 
-function isFiatPaymentProvider(provider: PaymentProviderName): provider is FiatPaymentProvider {
-  return provider === 'stripe' || provider === 'paypal';
-}
-
 async function createFiatSettlement(provider: FiatPaymentProvider, amount: number, currency: Currency): Promise<PaymentSettlement> {
-  const settlementCurrency = FIAT_PROVIDER_CURRENCIES[provider].includes(currency) ? currency : 'USD';
+  const settlementCurrency = supportsFiatProviderCurrency(provider, currency) ? currency : 'USD';
   const settlement = settlementCurrency === currency
     ? { amount, rate: null, conversionRate: null }
     : await convertCurrency(amount, currency, settlementCurrency);

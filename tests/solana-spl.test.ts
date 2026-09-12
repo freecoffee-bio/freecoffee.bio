@@ -57,7 +57,9 @@ test('validates public HTTPS Solana RPC URLs', () => {
   assert.throws(() => validateSolanaRpcUrl('https://user:secret@example.com'), /credentials/);
   for (const url of [
     'https://localhost',
+    'https://localhost.',
     'https://rpc.localhost',
+    'https://rpc.localhost.',
     'https://127.0.0.1',
     'https://10.0.0.1',
     'https://172.31.255.255',

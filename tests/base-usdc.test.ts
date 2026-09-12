@@ -47,10 +47,21 @@ test('validates public HTTPS Base RPC URLs', () => {
   assert.equal(validateBaseRpcUrl('https://fcoffee.example.com'), 'https://fcoffee.example.com');
   assert.throws(() => validateBaseRpcUrl('http://mainnet.base.org'), /must use HTTPS/);
   assert.throws(() => validateBaseRpcUrl('https://user:secret@example.com'), /must not contain URL credentials/);
-  assert.throws(() => validateBaseRpcUrl('https://localhost:8545'), /public host/);
-  assert.throws(() => validateBaseRpcUrl('https://192.168.1.1'), /public host/);
-  assert.throws(() => validateBaseRpcUrl('https://[::1]'), /public host/);
-  assert.throws(() => validateBaseRpcUrl('https://[fd00::1]'), /public host/);
+  for (const url of [
+    'https://localhost:8545',
+    'https://localhost.',
+    'https://rpc.localhost.',
+    'https://0.1.2.3',
+    'https://192.168.1.1',
+    'https://100.64.0.1',
+    'https://224.0.0.1',
+    'https://[::1]',
+    'https://[fd00::1]',
+    'https://[fe80::1]',
+    'https://[::ffff:127.0.0.1]',
+  ]) {
+    assert.throws(() => validateBaseRpcUrl(url), /public host/);
+  }
   assert.throws(() => validateBaseRpcUrl('not a URL'), /valid Base RPC URL/);
 });
 

@@ -1,4 +1,5 @@
 import Big from 'big.js';
+import { isNonPublicHost } from './network-host';
 
 export const BASE_CHAIN_ID = 8453;
 export const BASE_USDC_CONTRACT = '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913';
@@ -35,10 +36,7 @@ export function validateBaseRpcUrl(value: string): string {
   }
   if (url.protocol !== 'https:') throw new Error('Base RPC URL must use HTTPS.');
   if (url.username || url.password) throw new Error('Base RPC URL must not contain URL credentials.');
-  const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, '');
-  const privateIpv4 = /^(?:127\.|10\.|192\.168\.|169\.254\.|172\.(?:1[6-9]|2\d|3[01])\.)/.test(host);
-  const privateIpv6 = host === '::' || host === '::1' || /^(?:fc|fd)[0-9a-f]{2}:/.test(host) || /^fe[89ab][0-9a-f]:/.test(host) || /^::ffff:(?:127\.|10\.|192\.168\.|169\.254\.|172\.(?:1[6-9]|2\d|3[01])\.)/.test(host);
-  if (host === 'localhost' || host.endsWith('.localhost') || privateIpv4 || privateIpv6) throw new Error('Base RPC URL must use a public host.');
+  if (isNonPublicHost(url.hostname)) throw new Error('Base RPC URL must use a public host.');
   return url.toString().replace(/\/$/, '');
 }
 

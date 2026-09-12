@@ -12,6 +12,7 @@ import {
   paypalApiBase,
 } from '../src/server/payment-payloads';
 import { normalizeSiteUrl } from '../src/server/site-url';
+import { supportsFiatProviderCurrency } from '../src/server/payment-currencies';
 
 const input = {
   referenceId: 'order_123',
@@ -86,6 +87,18 @@ test('builds PayPal checkout payload with reference and return URLs', () => {
   assert.equal(payload.purchase_units[0].amount.value, '12.50');
   assert.equal(payload.application_context.return_url, input.returnUrl);
   assert.equal(payload.application_context.cancel_url, input.cancelUrl);
+});
+
+test('keeps supported non-USD currencies for Stripe and PayPal', () => {
+  for (const provider of ['stripe', 'paypal'] as const) {
+    for (const currency of ['CNY', 'EUR', 'GBP', 'JPY'] as const) {
+      assert.equal(supportsFiatProviderCurrency(provider, currency), true, `${provider} should support ${currency}`);
+    }
+  }
+
+  const cnyInput = { ...input, currency: 'CNY' as const };
+  assert.equal(buildStripeCheckoutPayload(cnyInput).get('line_items[0][price_data][currency]'), 'cny');
+  assert.deepEqual(buildPayPalCheckoutPayload(cnyInput).purchase_units[0].amount, { currency_code: 'CNY', value: '12.50' });
 });
 
 test('selects the correct PayPal environment', () => {

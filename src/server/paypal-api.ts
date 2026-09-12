@@ -46,8 +46,10 @@ export async function getPayPalAccessToken(): Promise<{ token: string; apiBase: 
   return { token, apiBase };
 }
 
-export async function getPayPalOrderDetails(orderId: string): Promise<PayPalOrder> {
-  const { token, apiBase } = await getPayPalAccessToken();
+type PayPalApiSession = { token: string; apiBase: string };
+
+export async function getPayPalOrderDetails(orderId: string, session?: PayPalApiSession): Promise<PayPalOrder> {
+  const { token, apiBase } = session ?? await getPayPalAccessToken();
   const response = await fetch(`${apiBase}/v2/checkout/orders/${encodeURIComponent(orderId)}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -73,7 +75,7 @@ export async function capturePayPalOrder(orderId: string): Promise<PayPalCapture
   if (response.ok) return parseCompletedPayPalOrder(orderId, result);
 
   if (result.details?.some((detail) => detail.issue === 'ORDER_ALREADY_CAPTURED')) {
-    return parseCompletedPayPalOrder(orderId, await getPayPalOrderDetails(orderId) as PayPalOrderResult);
+    return parseCompletedPayPalOrder(orderId, await getPayPalOrderDetails(orderId, { token, apiBase }) as PayPalOrderResult);
   }
   throw new Error(`PayPal capture failed with status ${response.status}.`);
 }

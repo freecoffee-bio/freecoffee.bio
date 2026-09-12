@@ -1,46 +1,9 @@
 import type { APIRoute } from 'astro';
-import { capturePayPalPayment, markPaymentComplete, recordPaymentEvent, updatePaymentEvent, getPaymentSettings } from '../../../server/payments';
+import { capturePayPalPayment, markPaymentComplete, recordPaymentEvent, updatePaymentEvent } from '../../../server/payments';
+import { getPaymentSettings } from '../../../server/payment-settings';
 import { publicError, requestId } from '../../../server/http';
 import { amountToMinor } from '../../../server/money';
-import { paypalApiBase } from '../../../server/payment-payloads';
-
-type PayPalAmount = { currency_code?: string; value?: string };
-type PayPalPurchaseUnit = {
-  reference_id?: string;
-  custom_id?: string;
-  amount?: PayPalAmount;
-  payments?: { captures?: Array<{ amount?: PayPalAmount }> };
-};
-type PayPalOrder = { id?: string; status?: string; purchase_units?: PayPalPurchaseUnit[] };
-type PayPalEvent = {
-  id?: string;
-  event_type?: string;
-  resource?: {
-    id?: string;
-    status?: string;
-    custom_id?: string;
-    supplementary_data?: { related_ids?: { order_id?: string } };
-    purchase_units?: PayPalPurchaseUnit[];
-  };
-};
-
-async function getPayPalAccessToken() {
-  const settings = await getPaymentSettings();
-  if (!settings.paypalClientId || !settings.paypalClientSecret) throw new Error('PayPal is not configured.');
-  const apiBase = paypalApiBase(settings.paypalSandbox);
-  const response = await fetch(`${apiBase}/v1/oauth2/token`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${btoa(`${settings.paypalClientId}:${settings.paypalClientSecret}`)}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: 'grant_type=client_credentials',
-  });
-  if (!response.ok) throw new Error(`PayPal authentication failed with status ${response.status}.`);
-  const token = (await response.json() as { access_token?: string }).access_token;
-  if (!token) throw new Error('PayPal did not return an access token.');
-  return { token, apiBase };
-}
+import { getPayPalAccessToken, getPayPalOrderDetails, type PayPalEvent, type PayPalOrder } from '../../../server/paypal-api';
 
 async function verifyPayPalWebhook(request: Request, payload: string) {
   const settings = await getPaymentSettings();
@@ -62,15 +25,6 @@ async function verifyPayPalWebhook(request: Request, payload: string) {
   return verification.ok && (await verification.json() as { verification_status?: string }).verification_status === 'SUCCESS';
 }
 
-async function getPayPalOrderDetails(orderId: string): Promise<PayPalOrder> {
-  const { token, apiBase } = await getPayPalAccessToken();
-  const response = await fetch(`${apiBase}/v2/checkout/orders/${encodeURIComponent(orderId)}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!response.ok) throw new Error(`PayPal order lookup failed with status ${response.status}.`);
-  return await response.json() as PayPalOrder;
-}
-
 function getReferenceId(event: PayPalEvent, order?: PayPalOrder) {
   return event.resource?.custom_id
     ?? event.resource?.purchase_units?.[0]?.custom_id
@@ -83,6 +37,7 @@ function getReferenceId(event: PayPalEvent, order?: PayPalOrder) {
 function getAmount(event: PayPalEvent, order?: PayPalOrder) {
   return event.resource?.purchase_units?.[0]?.payments?.captures?.[0]?.amount
     ?? event.resource?.purchase_units?.[0]?.amount
+    ?? event.resource?.amount
     ?? order?.purchase_units?.[0]?.payments?.captures?.[0]?.amount
     ?? order?.purchase_units?.[0]?.amount
     ?? null;

@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
-import { findPaymentReference, markPaymentComplete, recordPaymentEvent, updatePaymentEvent, getPaymentSettings } from '../../../server/payments';
+import { findPaymentReference, markPaymentComplete, recordPaymentEvent, updatePaymentEvent } from '../../../server/payments';
+import { getPaymentSettings } from '../../../server/payment-settings';
 import { publicError, requestId } from '../../../server/http';
 
 async function verifyStripeSignature(payload: string, header: string, secret: string) {
@@ -33,7 +34,12 @@ export const POST: APIRoute = async ({ request }) => {
   if (!signature || !secret) return publicError('Webhook is not configured.', 503, id);
   if (!(await verifyStripeSignature(payload, signature, secret))) return publicError('Invalid signature.', 400, id);
   let event: { id?: string; type?: string; data?: { object?: { id?: string; client_reference_id?: string; metadata?: { reference_id?: string }; payment_status?: string; amount_total?: number; currency?: string } } };
-  try { event = JSON.parse(payload) as typeof event; } catch (error) { console.error('Invalid Stripe webhook JSON', { id, error, payload }); return publicError('Invalid webhook payload.', 400, id); }
+  try {
+    event = JSON.parse(payload) as typeof event;
+  } catch (error) {
+    console.error('Invalid Stripe webhook JSON', { id, error, payload });
+    return publicError('Invalid webhook payload.', 400, id);
+  }
   if (!event.id) return publicError('Invalid event.', 400, id);
   const inserted = await recordPaymentEvent('stripe', event.id, payload);
 
@@ -53,7 +59,6 @@ export const POST: APIRoute = async ({ request }) => {
           await markPaymentComplete(referenceId, 'stripe', session.id, amount, currency);
           await updatePaymentEvent('stripe', event.id, 'processed');
         } else await updatePaymentEvent('stripe', event.id, 'ignored', 'Missing payment reference.');
-      
       }
     } else await updatePaymentEvent('stripe', event.id, 'ignored');
   } catch (error) {

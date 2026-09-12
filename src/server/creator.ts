@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { env } from 'cloudflare:workers';
 import { createDb } from '../db';
-import { getPaymentSettings } from './payments';
+import { getPaymentSettings } from './payment-settings';
 import { creatorPageSettings, creatorPaymentAccounts, creatorProfiles, creatorCryptoWallets, galleryItems, posts, products as productsTable, smtpSettings, siteSettings, supportTransactions } from '../db/schema';
 import { activateEmailProvider, getEmailDeliverySettings } from './email-config';
 import { getEnabledChainProviders } from './chain-payments';

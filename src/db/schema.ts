@@ -230,6 +230,7 @@ export const supportTransactions = sqliteTable('support_transactions', {
   index('support_transactions_creator_id_idx').on(table.creatorId),
   index('support_transactions_supporter_user_id_idx').on(table.supporterUserId),
   index('support_transactions_status_idx').on(table.status),
+  index('support_transactions_pending_created_idx').on(table.createdAt).where(sql`${table.status} = 'pending'`),
 ]);
 
 export const galleryItems = sqliteTable('gallery_items', {
@@ -396,7 +397,10 @@ export const notificationDeliveries = sqliteTable('notification_deliveries', {
   sentAt: integer('sent_at', { mode: 'timestamp' }),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
-});
+}, (table) => [
+  index('notification_deliveries_processing_locked_idx').on(table.lockedAt).where(sql`${table.status} = 'processing'`),
+  index('notification_deliveries_pending_created_idx').on(table.createdAt).where(sql`${table.channel} = 'email' AND ${table.status} IN ('pending', 'retry')`),
+]);
 
 export const chainPaymentAmountSlots = sqliteTable('chain_payment_amount_slots', {
   id: text('id').primaryKey(),

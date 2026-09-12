@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, inArray, isNotNull, isNull, lte, notInArray, or } from 'drizzle-orm';
+import { and, eq, inArray, isNull, lte, notInArray, or } from 'drizzle-orm';
 import { env } from 'cloudflare:workers';
 import { createDb } from '../db';
 import { orders, paymentRecords, supportTransactions } from '../db/schema';
@@ -34,12 +34,6 @@ export async function runScheduledTasks() {
   for (const payment of cryptoPayments.confirmedPayments) {
     if (await fulfillCryptoPayment(payment)) cryptoPaymentsConfirmed += 1;
   }
-  const recentPaidCrypto = await db.select({ referenceId: paymentRecords.referenceId, provider: paymentRecords.provider, transactionHash: paymentRecords.transactionHash, amount: paymentRecords.amount, currency: paymentRecords.currency })
-    .from(paymentRecords)
-    .where(and(inArray(paymentRecords.provider, [...CHAIN_PAYMENT_PROVIDERS]), eq(paymentRecords.status, 'paid'), isNotNull(paymentRecords.transactionHash), gt(paymentRecords.updatedAt, new Date(now.getTime() - 24 * 60 * 60_000))))
-    .orderBy(desc(paymentRecords.updatedAt))
-    .limit(200);
-  for (const payment of recentPaidCrypto) await fulfillCryptoPayment({ ...payment, transactionHash: payment.transactionHash! });
 
   const cutoff = new Date(now.getTime() - 20 * 60_000);
   const expiredOrders = await db.update(orders).set({ status: 'expired', closedAt: now, closeReason: 'payment-timeout' }).where(and(eq(orders.status, 'pending'), or(lte(orders.expiresAt, now), and(isNull(orders.expiresAt), lte(orders.createdAt, cutoff))))).returning({ id: orders.id });

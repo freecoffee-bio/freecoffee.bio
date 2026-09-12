@@ -1,0 +1,4 @@
+CREATE INDEX `notification_deliveries_processing_locked_idx` ON `notification_deliveries` (`locked_at`) WHERE "notification_deliveries"."status" = 'processing';--> statement-breakpoint
+CREATE INDEX `notification_deliveries_pending_created_idx` ON `notification_deliveries` (`created_at`) WHERE "notification_deliveries"."channel" = 'email' AND "notification_deliveries"."status" IN ('pending', 'retry');--> statement-breakpoint
+CREATE INDEX `support_transactions_pending_created_idx` ON `support_transactions` (`created_at`) WHERE "support_transactions"."status" = 'pending';--> statement-breakpoint
+UPDATE `notification_templates` SET `enabled` = 1 WHERE `enabled` = 0;

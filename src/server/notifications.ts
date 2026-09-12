@@ -34,7 +34,7 @@ export async function listNotificationTemplates() {
   return createDb(env.DB).select().from(notificationTemplates).where(eq(notificationTemplates.channel, 'email')).orderBy(notificationTemplates.displayName);
 }
 
-export async function updateNotificationTemplate(id: string, input: Pick<NotificationTemplate, 'displayName' | 'description' | 'subject' | 'bodyText' | 'bodyHtml' | 'enabled'>) {
+export async function updateNotificationTemplate(id: string, input: Pick<NotificationTemplate, 'displayName' | 'description' | 'subject' | 'bodyText' | 'bodyHtml'>) {
   await ensureNotificationTemplates();
   const [row] = await createDb(env.DB).update(notificationTemplates).set({ ...input, updatedAt: new Date() }).where(and(eq(notificationTemplates.id, id), eq(notificationTemplates.channel, 'email'))).returning();
   if (!row) throw new Error('Template not found.');
@@ -72,13 +72,28 @@ export async function processNotificationBatch(limit = 8): Promise<NotificationB
 
   const stale = new Date(now.getTime() - 10 * 60_000);
   await db.update(notificationDeliveries).set({ status: 'retry', availableAt: now, lockedAt: null, updatedAt: now }).where(and(eq(notificationDeliveries.status, 'processing'), lte(notificationDeliveries.lockedAt, stale)));
+  const candidates = await db.select({
+    id: notificationDeliveries.id,
+    template: notificationDeliveries.template,
+    recipient: notificationDeliveries.recipient,
+    referenceId: notificationDeliveries.referenceId,
+    payloadJson: notificationDeliveries.payloadJson,
+    attempts: notificationDeliveries.attempts,
+  }).from(notificationDeliveries).where(and(eq(notificationDeliveries.channel, 'email'), inArray(notificationDeliveries.status, ['pending', 'retry']), or(isNull(notificationDeliveries.availableAt), lte(notificationDeliveries.availableAt, now)))).orderBy(notificationDeliveries.createdAt).limit(limit);
+  if (!candidates.length) return { candidates: 0, claimed: 0, sent: 0, retriedOrFailed: 0 };
+
   const templates = await db.select().from(notificationTemplates).where(eq(notificationTemplates.channel, 'email'));
   const templateMap = new Map(templates.map((template) => [template.eventKey, template]));
-  const candidates = await db.select().from(notificationDeliveries).where(and(eq(notificationDeliveries.channel, 'email'), inArray(notificationDeliveries.status, ['pending', 'retry']), or(isNull(notificationDeliveries.availableAt), lte(notificationDeliveries.availableAt, now)))).orderBy(notificationDeliveries.createdAt).limit(limit);
-  if (!candidates.length) return { candidates: 0, claimed: 0, sent: 0, retriedOrFailed: 0 };
   const claimed = [];
   for (const candidate of candidates) {
-    const result = await db.update(notificationDeliveries).set({ status: 'processing', lockedAt: now, updatedAt: now }).where(and(eq(notificationDeliveries.id, candidate.id), inArray(notificationDeliveries.status, ['pending', 'retry']))).returning();
+    const result = await db.update(notificationDeliveries).set({ status: 'processing', lockedAt: now, updatedAt: now }).where(and(eq(notificationDeliveries.id, candidate.id), inArray(notificationDeliveries.status, ['pending', 'retry']))).returning({
+      id: notificationDeliveries.id,
+      template: notificationDeliveries.template,
+      recipient: notificationDeliveries.recipient,
+      referenceId: notificationDeliveries.referenceId,
+      payloadJson: notificationDeliveries.payloadJson,
+      attempts: notificationDeliveries.attempts,
+    });
     if (result[0]) claimed.push(result[0]);
   }
   if (!claimed.length) return { candidates: candidates.length, claimed: 0, sent: 0, retriedOrFailed: 0 };
@@ -90,7 +105,7 @@ export async function processNotificationBatch(limit = 8): Promise<NotificationB
       const job = claimed[index];
       const template = templateMap.get(job.template);
       try {
-        if (!template || !template.enabled) throw new Error(!template ? 'Notification template not found.' : 'Notification template is disabled.');
+        if (!template) throw new Error('Notification template not found.');
         const data = job.payloadJson ? JSON.parse(job.payloadJson) as Record<string, string> : {};
         await sendEmail({ to: job.recipient, subject: render(template.subject, data), text: render(template.bodyText, data), html: template.bodyHtml ? render(template.bodyHtml, data) : undefined, referenceId: job.referenceId ?? undefined });
         await db.update(notificationDeliveries).set({ status: 'sent', attempts: job.attempts + 1, sentAt: new Date(), lockedAt: null, updatedAt: new Date() }).where(and(eq(notificationDeliveries.id, job.id), eq(notificationDeliveries.status, 'processing')));

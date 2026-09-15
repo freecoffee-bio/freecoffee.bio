@@ -19,7 +19,7 @@ const reference = Astro.url.searchParams.get('reference');
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ referenceId }),
       }).then(async (response) => {
-        const result = await response.json().catch(() => ({}));
+        const result = await response.json().catch(() => ({})) as { error?: string; status?: string };
         if (!response.ok) throw new Error(result.error || 'Payment could not be confirmed.');
         if (result.status === 'completed') {
           if (title) title.textContent = 'Payment completed';

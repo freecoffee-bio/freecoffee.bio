@@ -10,14 +10,27 @@ export const defaultNotificationTemplates = [
   { eventKey: 'support-receipt', displayName: 'Support payment receipt', description: 'Sent to a supporter after a payment is completed.', subject: 'Your {{siteName}} support receipt', bodyText: 'Thank you for supporting {{siteName}}. Your payment of {{amount}} {{currency}} was confirmed.', bodyHtml: '<p>Thank you for supporting {{siteName}}.</p><p>Your payment of <strong>{{amount}} {{currency}}</strong> was confirmed.</p>' },
   { eventKey: 'creator-support-notification', displayName: 'New support notification', description: 'Sent to the creator when someone sends support.', subject: 'You received support on {{siteName}}', bodyText: '{{supporterName}} sent {{amount}} {{currency}}.', bodyHtml: '<p>{{supporterName}} sent <strong>{{amount}} {{currency}}</strong>.</p>' },
   { eventKey: 'order-receipt', displayName: 'Order payment receipt', description: 'Sent to a buyer after a shop order is paid.', subject: 'Your {{siteName}} purchase', bodyText: 'Your order {{orderId}} was confirmed.\n\nSign in to your account and open My orders to download your purchase.', bodyHtml: '<p>Your order <strong>{{orderId}}</strong> was confirmed.</p><p>Sign in to your account and open My orders to download your purchase.</p>' },
-  { eventKey: 'email-verification', displayName: 'Email verification', description: 'Sent when a new account or a new email address needs verification. Available variable: {{verificationUrl}}.', subject: 'Verify your {{siteName}} email address', bodyText: 'Verify your email address by opening this link:\n\n{{verificationUrl}}\n\nIf your email provider blocks links, copy the complete link above and paste it into your browser address bar.\n\nThis link expires in one hour.', bodyHtml: '<p>Verify your email address by opening the link below.</p><p><a href="{{verificationUrl}}">Verify email address</a></p><p>If your email provider blocks links, copy the complete link below and paste it into your browser address bar:</p><p style="word-break:break-all"><a href="{{verificationUrl}}">{{verificationUrl}}</a></p><p>This link expires in one hour.</p>' },
-  { eventKey: 'change-email-confirmation', displayName: 'Email change confirmation', description: 'Sent to the current email address before changing it. Available variables: {{newEmail}}, {{verificationUrl}}.', subject: 'Confirm your {{siteName}} email change', bodyText: 'You requested to change your email address to {{newEmail}}.\n\nConfirm this change by opening this link:\n\n{{verificationUrl}}\n\nIf your email provider blocks links, copy the complete link above and paste it into your browser address bar.\n\nThis link expires in one hour.', bodyHtml: '<p>You requested to change your email address to <strong>{{newEmail}}</strong>.</p><p><a href="{{verificationUrl}}">Confirm email change</a></p><p>If your email provider blocks links, copy the complete link below and paste it into your browser address bar:</p><p style="word-break:break-all"><a href="{{verificationUrl}}">{{verificationUrl}}</a></p><p>This link expires in one hour.</p>' },
+  { eventKey: 'email-verification', displayName: 'Email verification', description: 'Sent when a new account or email address needs verification. Available variable: {{verificationUrl}}.', subject: 'Your {{siteName}} verification link', bodyText: 'Use this link to verify your email address:\n\n{{verificationUrl}}\n\nThis link expires in 1 hour.', bodyHtml: '<p>Use the link below to verify your email address.</p><p><a href="{{verificationUrl}}">Verify email</a></p><p>This link expires in 1 hour.</p>' },
+  { eventKey: 'change-email-confirmation', displayName: 'Email change confirmation', description: 'Sent to the current address before an email change. Available variables: {{newEmail}}, {{verificationUrl}}.', subject: 'Confirm your {{siteName}} email change', bodyText: 'A request was made to change your email address to {{newEmail}}.\n\nUse this link to confirm the change:\n\n{{verificationUrl}}\n\nThis link expires in 1 hour.', bodyHtml: '<p>A request was made to change your email address to <strong>{{newEmail}}</strong>.</p><p><a href="{{verificationUrl}}">Confirm email change</a></p><p>This link expires in 1 hour.</p>' },
 ];
 
 const legacyOrderReceipt = {
   bodyText: 'Your order {{orderId}} was confirmed.\n\nSign in to your account and open My orders to download your purchase.\n\n{{downloadLinks}}',
   bodyHtml: '<p>Your order <strong>{{orderId}}</strong> was confirmed.</p><p>Sign in to your account and open My orders to download your purchase.</p><p>{{downloadLinks}}</p>',
 };
+
+const legacyAuthenticationTemplates = [
+  {
+    eventKey: 'email-verification',
+    bodyText: 'Verify your email address by opening this link:\n\n{{verificationUrl}}\n\nIf your email provider blocks links, copy the complete link above and paste it into your browser address bar.\n\nThis link expires in one hour.',
+    bodyHtml: '<p>Verify your email address by opening the link below.</p><p><a href="{{verificationUrl}}">Verify email address</a></p><p>If your email provider blocks links, copy the complete link below and paste it into your browser address bar:</p><p style="word-break:break-all"><a href="{{verificationUrl}}">{{verificationUrl}}</a></p><p>This link expires in one hour.</p>',
+  },
+  {
+    eventKey: 'change-email-confirmation',
+    bodyText: 'You requested to change your email address to {{newEmail}}.\n\nConfirm this change by opening this link:\n\n{{verificationUrl}}\n\nIf your email provider blocks links, copy the complete link above and paste it into your browser address bar.\n\nThis link expires in one hour.',
+    bodyHtml: '<p>You requested to change your email address to <strong>{{newEmail}}</strong>.</p><p><a href="{{verificationUrl}}">Confirm email change</a></p><p>If your email provider blocks links, copy the complete link below and paste it into your browser address bar:</p><p style="word-break:break-all"><a href="{{verificationUrl}}">{{verificationUrl}}</a></p><p>This link expires in one hour.</p>',
+  },
+];
 
 
 export async function ensureNotificationTemplates() {
@@ -27,6 +40,10 @@ export async function ensureNotificationTemplates() {
   const orderReceipt = defaultNotificationTemplates.find((template) => template.eventKey === 'order-receipt')!;
   await db.update(notificationTemplates).set({ bodyText: orderReceipt.bodyText, bodyHtml: orderReceipt.bodyHtml, updatedAt: now }).where(and(eq(notificationTemplates.eventKey, 'order-receipt'), eq(notificationTemplates.channel, 'email'), eq(notificationTemplates.bodyText, legacyOrderReceipt.bodyText), eq(notificationTemplates.bodyHtml, legacyOrderReceipt.bodyHtml)));
 
+  for (const legacy of legacyAuthenticationTemplates) {
+    const template = defaultNotificationTemplates.find((candidate) => candidate.eventKey === legacy.eventKey)!;
+    await db.update(notificationTemplates).set({ bodyText: template.bodyText, bodyHtml: template.bodyHtml, updatedAt: now }).where(and(eq(notificationTemplates.eventKey, legacy.eventKey), eq(notificationTemplates.channel, 'email'), eq(notificationTemplates.bodyText, legacy.bodyText), eq(notificationTemplates.bodyHtml, legacy.bodyHtml)));
+  }
 }
 
 export async function listNotificationTemplates() {

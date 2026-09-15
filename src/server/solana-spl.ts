@@ -19,7 +19,7 @@ import {
 
 export const SOLANA_PROVIDERS = ['solana-usdc', 'solana-usdt'] as const;
 export type SolanaPaymentProvider = typeof SOLANA_PROVIDERS[number];
-export const SOLANA_MAINNET_GENESIS_HASH = '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp';
+export const SOLANA_MAINNET_GENESIS_HASH = '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d';
 const DEFAULT_SOLANA_SCAN_RPC_BUDGET = 20;
 const MAX_SOLANA_TOKEN_ACCOUNTS = 8;
 const SOLANA_SIGNATURE_LIMIT = 100;

@@ -1,5 +1,7 @@
 # FreeCoffee.bio
 
+[![Support me on FreeCoffee](https://tip.freecoffee.bio/api/buttons/github.svg?creator=site)](https://tip.freecoffee.bio/)
+
 > An open-source creator support page and digital storefront for Cloudflare Workers.
 
 FreeCoffee.bio lets independent creators publish a profile, accept direct support, sell digital products, and manage their storefront from one admin area. Payments are configured for each creator and settle to the creator's own payment account; the platform records payment and order state but is not designed to act as a merchant of record.

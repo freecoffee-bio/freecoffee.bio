@@ -1,0 +1,72 @@
+---
+import '../styles/global.css';
+import geistLatinFont from '@fontsource-variable/geist/files/geist-latin-wght-normal.woff2';
+import { ArrowLeft } from 'lucide-react';
+import { ToastHost } from '../components/toast-host';
+import LogoMark from '../components/logo-mark.astro';
+import { getDefaultPublicCreator } from '../server/creator';
+
+type Props = {
+  title: string
+  description?: string
+  backHref?: string
+  backLabel?: string
+  brandName?: string
+  ogType?: 'article' | 'product' | 'website'
+  image?: string | null
+  analyticsCode?: string | null
+}
+
+const { title, description, backHref = '/', backLabel = 'Back to page', brandName: brandNameProp, ogType = 'website', image, analyticsCode } = Astro.props;
+const workspace = brandNameProp ? null : await getDefaultPublicCreator();
+const brandName = brandNameProp ?? workspace?.creator.displayName ?? 'FreeCoffee.bio';
+const pageTitle = title.includes(brandName) ? title : `${title} — ${brandName}`;
+const canonicalUrl = Astro.url.href;
+const imageUrl = image ? new URL(image, Astro.url.origin).href : null;
+---
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <link rel="preload" href={geistLatinFont} as="font" type="font/woff2" crossorigin />
+    {description && <meta name="description" content={description} />}
+    <link rel="canonical" href={canonicalUrl} />
+    <meta property="og:type" content={ogType} />
+    <meta property="og:title" content={pageTitle} />
+    {description && <meta property="og:description" content={description} />}
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:site_name" content={brandName} />
+    {imageUrl && <meta property="og:image" content={imageUrl} />}
+    <meta name="twitter:card" content={imageUrl ? 'summary_large_image' : 'summary'} />
+    <meta name="twitter:title" content={pageTitle} />
+    {description && <meta name="twitter:description" content={description} />}
+    {imageUrl && <meta name="twitter:image" content={imageUrl} />}
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    {analyticsCode && <Fragment set:html={analyticsCode} />}
+    <title>{pageTitle}</title>
+  </head>
+  <body>
+    <script is:inline>try { if (localStorage.getItem('freecoffee-theme') === 'dark') document.documentElement.classList.add('dark'); } catch {}</script>
+    <ToastHost client:load />
+    <main class="min-h-screen bg-muted/30 text-foreground">
+      <header class="border-b bg-background">
+        <div class="mx-auto flex min-h-16 max-w-5xl items-center justify-between gap-4 px-4">
+          <a href="/" class="inline-flex" aria-label="FreeCoffee home"><LogoMark /></a>
+          <a href={backHref} class="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4" /> {backLabel}</a>
+        </div>
+      </header>
+
+      <div class="min-h-[90vh]">
+        <slot />
+      </div>
+
+      <footer class="border-t bg-background">
+        <div class="mx-auto flex max-w-5xl flex-wrap justify-between gap-3 px-4 py-5 font-mono text-[14px] text-muted-foreground">
+          <a href="/">{brandName}</a>
+          <span>Creator-owned support, made simple.</span>
+          <a href="/privacy" class="hover:text-foreground">Privacy</a>
+        </div>
+      </footer>
+    </main>
+  </body>
+</html>

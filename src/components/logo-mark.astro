@@ -1,0 +1,15 @@
+---
+type Props = {
+  class?: string
+}
+
+const { class: className } = Astro.props
+---
+<span class:list={['logo-brand', className]}>
+  <span class="logo-mark" aria-hidden="true">
+    <svg class="logo-mark-icon" viewBox="0 0 1024 1024" focusable="false">
+      <use href="/logo.svg#svg_15"></use>
+    </svg>
+  </span>
+  <span class="logo-brand-name">FreeCoffee.bio</span>
+</span>

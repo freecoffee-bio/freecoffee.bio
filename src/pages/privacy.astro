@@ -1,0 +1,77 @@
+---
+import PublicPage from '../layouts/public-page.astro';
+---
+<PublicPage title="Privacy" description="Privacy information for FreeCoffee.bio." backLabel="Return home">
+      <article class="mx-auto max-w-5xl px-4 py-6 sm:py-8">
+        <section class="rounded-xl border bg-card p-5 shadow-sm sm:p-8">
+          <div class="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p class="font-mono text-xs uppercase tracking-[0.12em] text-primary">FreeCoffee.bio</p>
+              <h1 class="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">Privacy</h1>
+              <p class="mt-4 max-w-3xl text-base leading-7 text-muted-foreground">This page explains what information FreeCoffee.bio processes and why. The exact operator, payment setup, email provider, and retention settings can vary when a creator deploys and operates their own instance.</p>
+              <p class="mt-3 text-sm text-muted-foreground">Last updated: September 2, 2026</p>
+            </div>
+            <img src="/logo-full.svg" alt="FreeCoffee.bio" class="h-auto w-40 shrink-0 sm:w-48" />
+          </div>
+
+          <div class="mt-10 flex flex-col gap-10 text-base leading-7">
+          <section>
+            <h2 class="text-xl font-semibold">What we process</h2>
+            <div class="mt-4 flex flex-col gap-4 text-muted-foreground">
+              <p><strong class="text-foreground">Account information.</strong> When you register or sign in, the service processes your name, email address, password credential, account timestamps, and email-verification state. Passwords are handled by the authentication system and are not displayed in the application.</p>
+              <p><strong class="text-foreground">Session and security information.</strong> Authentication sessions may contain an IP address and User-Agent value. These records support sign-in sessions, authorization, security, and session expiration.</p>
+              <p><strong class="text-foreground">Support information.</strong> When you support a creator, the service receives the receipt email, amount, currency, payment provider, optional display name, optional message, and anonymous-display choice. The transaction and payment status are stored so the payment can be completed and reconciled.</p>
+              <p><strong class="text-foreground">Shop orders.</strong> For a shop purchase, the service processes the buyer account, email, product, amount, currency, provider, order status, and payment reference. Access to purchased digital products is verified against the signed-in buyer account.</p>
+              <p><strong class="text-foreground">Creator and operational information.</strong> Creator profiles, public page settings, products, gallery items, posts, payment connection status, SMTP settings, payment events, notification-delivery records, and uploaded product files are processed for the functions enabled by the creator.</p>
+            </div>
+          </section>
+
+          <section>
+            <h2 class="text-xl font-semibold">How information is used</h2>
+            <ul class="mt-4 flex list-disc flex-col gap-2 pl-5 text-muted-foreground">
+              <li>To create and authenticate accounts and protect the administrator area.</li>
+              <li>To create support and shop checkout sessions and confirm payment status.</li>
+              <li>To send payment receipts, purchase details, download links, creator notifications, and administrator-requested SMTP test messages.</li>
+              <li>To display creator pages, published content, public supporter information, and shop products according to creator settings.</li>
+              <li>To provide, secure, troubleshoot, and operate the service.</li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 class="text-xl font-semibold">Payment information</h2>
+            <p class="mt-4 text-muted-foreground">FreeCoffee.bio sends checkout requests to the creator's configured payment provider, currently Stripe or PayPal. The application stores payment metadata and provider references needed to create and reconcile a transaction. It does not ask for or store card numbers, bank credentials, or the payment provider's full payment details in the FreeCoffee.bio database. The applicable provider's privacy policy also applies to information submitted on its checkout page.</p>
+          </section>
+
+          <section>
+            <h2 class="text-xl font-semibold">Email and uploaded files</h2>
+            <p class="mt-4 text-muted-foreground">Receipts and notifications may be sent through the SMTP server configured by the site operator. Recipient addresses, notification status, attempts, and reference IDs are recorded for delivery tracking. Creator-uploaded digital files are stored in the object storage configured by the deployment, which may be Cloudflare R2 or an S3-compatible file service, and are delivered through time-limited, download-limited links after a completed purchase.</p>
+          </section>
+
+          <section>
+            <h2 class="text-xl font-semibold">Cookies and local storage</h2>
+            <p class="mt-4 text-muted-foreground">The authentication system uses a session cookie to keep users signed in. The public and administrator interfaces also use browser local storage for the light/dark theme preference under the key <code class="rounded bg-muted px-1.5 py-0.5 text-sm">freecoffee-theme</code>. The application does not currently include an advertising tracker or a separate analytics script in its frontend code.</p>
+          </section>
+
+          <section>
+            <h2 class="text-xl font-semibold">Service providers and infrastructure</h2>
+            <p class="mt-4 text-muted-foreground">Depending on the deployment, information is processed by the infrastructure used to run the application, which may include Cloudflare Workers, D1, R2, compatible object-storage services, and related request infrastructure, together with the payment and SMTP providers selected by the site operator. Providers process information under their own terms and privacy policies. Sensitive payment, storage, and SMTP credentials are intended to remain in the private server-side database and are not displayed after saving.</p>
+          </section>
+
+          <section>
+            <h2 class="text-xl font-semibold">Public information</h2>
+            <p class="mt-4 text-muted-foreground">Public display names, biographies, websites, social links, published posts, gallery content, published products, and non-anonymous supporter display names or messages may appear on a public creator page. A supporter can choose anonymous display when that option is enabled. Transaction emails and internal payment records are not public.</p>
+          </section>
+
+          <section>
+            <h2 class="text-xl font-semibold">Retention and deletion</h2>
+            <p class="mt-4 text-muted-foreground">Records are retained in the deployment database while needed to provide accounts, payment reconciliation, receipts, downloads, creator tools, security, and operational history. The current application does not provide a self-service account deletion workflow. For deletion, access, correction, or questions about a specific deployment, contact the site operator through the contact details published on that deployment or through the relevant creator/site administrator.</p>
+          </section>
+
+          <section>
+            <h2 class="text-xl font-semibold">Changes to this page</h2>
+            <p class="mt-4 text-muted-foreground">This page may be updated when the service, integrations, or data practices change. The updated version will be published at this URL with a revised update date.</p>
+          </section>
+          </div>
+        </section>
+      </article>
+</PublicPage>

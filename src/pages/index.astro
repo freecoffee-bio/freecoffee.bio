@@ -1,0 +1,72 @@
+---
+import '../styles/global.css';
+import geistLatinFont from '@fontsource-variable/geist/files/geist-latin-wght-normal.woff2';
+import { CreatorPage } from '../components/creator-page';
+import { ToastHost } from '../components/toast-host';
+import { getCurrentUser } from '../server/session';
+import { getDefaultPublicCreator } from '../server/creator';
+import { isRoot } from '../server/admin';
+import { getAdminPath } from '../lib/config';
+import { env } from 'cloudflare:workers';
+
+const currentUser = await getCurrentUser(Astro.request);
+const isAdmin = currentUser ? await isRoot(currentUser.id) : false;
+const workspace = await getDefaultPublicCreator(isAdmin);
+const adminPath = getAdminPath((env as unknown as { ADMIN_PATH?: string }).ADMIN_PATH);
+const creator = workspace ? {
+  name: workspace.creator.displayName,
+  currency: workspace.currency,
+  bio: workspace.creator.bio,
+  whatDo: workspace.creator.whatDo,
+  image: workspace.creator.image,
+  website: workspace.creator.website,
+  socialLinks: workspace.creator.socialLinks,
+  showSupport: workspace.page?.showSupport ?? true,
+  showShop: workspace.page?.showShop ?? true,
+  allowAnonymous: workspace.page?.allowAnonymous ?? true,
+  welcomeMessage: workspace.page?.welcomeMessage,
+  defaultSupportAmount: workspace.page?.defaultSupportAmount ?? 500,
+  suggestedSupportAmounts: workspace.page?.suggestedSupportAmounts,
+  minimumSupportAmount: workspace.page?.minimumSupportAmount ?? 100,
+  supportWording: workspace.page?.supportWording === 'tip' ? ('tip' as const) : ('donate' as const),
+  terms: workspace.page?.terms,
+  supportGoal: workspace.supportGoal,
+  products: workspace.products.map((product) => ({ id: product.id, name: product.name, description: product.description, coverImageUrl: product.coverImageUrl, price: product.price, currency: product.currency })),
+  gallery: workspace.gallery.map((item) => ({ id: item.id, albumId: item.albumId, title: item.title, description: item.description, imageUrl: item.imageUrl, linkUrl: item.linkUrl, status: item.status === 'published' ? ('published' as const) : ('draft' as const) })),
+  posts: workspace.posts.map((post) => ({ id: post.id, title: post.title, excerpt: post.excerpt, coverImageUrl: post.coverImageUrl, body: post.body, publishedAt: post.publishedAt, status: post.status === 'published' ? ('published' as const) : ('draft' as const) })),
+  supporters: workspace.supporters,
+  paymentProviders: workspace.paymentProviders,
+} : undefined;
+const title = creator ? `${creator.name} — FreeCoffee.bio` : 'FreeCoffee.bio';
+const description = creator?.bio || (creator ? `Support ${creator.name} on FreeCoffee.bio.` : 'Support independent creators directly with FreeCoffee.bio.');
+const canonicalUrl = Astro.url.href;
+const imageUrl = creator?.image ? new URL(creator.image, Astro.url.origin).href : null;
+const analyticsCode = workspace?.page?.analyticsCode;
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <link rel="preload" href={geistLatinFont} as="font" type="font/woff2" crossorigin />
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonicalUrl} />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:site_name" content={creator?.name || 'FreeCoffee.bio'} />
+    {imageUrl && <meta property="og:image" content={imageUrl} />}
+    <meta name="twitter:card" content={imageUrl ? 'summary_large_image' : 'summary'} />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    {imageUrl && <meta name="twitter:image" content={imageUrl} />}
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    {analyticsCode && <Fragment set:html={analyticsCode} />}
+    <title>{title}</title>
+  </head>
+  <body><script is:inline>try { if (localStorage.getItem('freecoffee-theme') === 'dark') document.documentElement.classList.add('dark'); } catch {}</script>
+    <ToastHost client:load />
+    <CreatorPage client:load currentUser={currentUser ? { name: currentUser.name, email: currentUser.email, image: currentUser.image } : null} creator={creator} isAdmin={isAdmin} adminPath={adminPath} />
+  </body>
+</html>

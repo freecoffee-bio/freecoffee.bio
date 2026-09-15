@@ -1,0 +1,10 @@
+# Copy to .dev.vars for local development; do not commit real values.
+
+# Admin route segment; defaults to admin when empty.
+ADMIN_PATH=admin
+
+# Better Auth session signing secret. Generate with openssl rand -base64 32.
+BETTER_AUTH_SECRET=f7faa246aee6bab803506bf2bdd194ee33297bdc27f81611ad2b19881c5229d1
+
+# Payment provider credentials are stored in D1 through the admin Payment settings page.
+# This file intentionally has no payment provider variables.

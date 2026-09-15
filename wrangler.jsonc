@@ -1,0 +1,39 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "compatibility_date": "2026-08-28",
+  "compatibility_flags": ["nodejs_compat"],
+  "name": "freecoffee",
+  "main": "./src/worker.ts",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "freecoffee-db",
+      "migrations_dir": "./migrations",
+      // "database_id": "3af86531-c0a9-4566-930e-89a6d9abd140",
+      "database_id": "local-development",
+    },
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "FREECOFFEE_KV",
+      // "id": "7483c42d3ce24e9f81f743b305ae7ab8",
+      "id": "local-development",
+    },
+  ],
+  "send_email": [
+    {
+      "name": "EMAIL",
+    },
+  ],
+  "triggers": {
+    "crons": ["* * * * *"],
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 0.1,
+  },
+}

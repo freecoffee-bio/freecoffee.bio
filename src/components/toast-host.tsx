@@ -11,8 +11,12 @@ export function ToastHost() {
       toast[detail.type === 'error' ? 'error' : detail.type === 'success' ? 'success' : 'message'](detail.message)
     }
     window.addEventListener('freecoffee:toast', handleToast)
+    document.documentElement.dataset.toastReady = 'true'
     window.dispatchEvent(new CustomEvent('freecoffee:toast-ready'))
-    return () => window.removeEventListener('freecoffee:toast', handleToast)
+    return () => {
+      window.removeEventListener('freecoffee:toast', handleToast)
+      delete document.documentElement.dataset.toastReady
+    }
   }, [])
 
   return <Toaster position="top-right" richColors closeButton />

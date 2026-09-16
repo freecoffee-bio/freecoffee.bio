@@ -23,7 +23,7 @@ const emailSent = Astro.url.searchParams.get('sent') === '1';
           <FieldGroup>
             <Field>
               <FieldLabel htmlFor="verification-email-input">Email</FieldLabel>
-              <Input id="verification-email-input" required name="email" type="email" autoComplete="email" className="h-11" value={email} />
+              <Input id="verification-email-input" required name="email" type="email" autoComplete="email" className="h-11" defaultValue={email} />
             </Field>
             <Button className="h-11 w-full" type="submit" id="resend-verification-button">Resend verification email</Button>
           </FieldGroup>
@@ -72,14 +72,9 @@ const emailSent = Astro.url.searchParams.get('sent') === '1';
       else updateButton();
 
       if (emailSent) {
-        let initialToastShown = false;
-        const notifyInitialSend = () => {
-          if (initialToastShown) return;
-          initialToastShown = true;
-          showToast('Verification email sent. Check your inbox.', 'success');
-        };
-        window.addEventListener('freecoffee:toast-ready', notifyInitialSend, { once: true });
-        window.setTimeout(notifyInitialSend, 500);
+        const notifyInitialSend = () => showToast('Verification email sent. Check your inbox.', 'success');
+        if (document.documentElement.dataset.toastReady === 'true') notifyInitialSend();
+        else window.addEventListener('freecoffee:toast-ready', notifyInitialSend, { once: true });
         window.history.replaceState({}, '', `${window.location.pathname}?email=${encodeURIComponent(emailInput?.value || '')}`);
       }
 

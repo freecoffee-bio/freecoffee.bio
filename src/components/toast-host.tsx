@@ -11,6 +11,7 @@ export function ToastHost() {
       toast[detail.type === 'error' ? 'error' : detail.type === 'success' ? 'success' : 'message'](detail.message)
     }
     window.addEventListener('freecoffee:toast', handleToast)
+    window.dispatchEvent(new CustomEvent('freecoffee:toast-ready'))
     return () => window.removeEventListener('freecoffee:toast', handleToast)
   }, [])
 

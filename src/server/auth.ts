@@ -36,7 +36,7 @@ export function createAuth() {
         });
       },
       autoSignInAfterVerification: true,
-      sendOnSignIn: true,
+      sendOnSignIn: false,
     },
     user: {
       changeEmail: {

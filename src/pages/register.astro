@@ -34,7 +34,11 @@ import { Turnstile } from '../components/turnstile';
         const data = Object.fromEntries(new FormData(form));
         const response = await fetch('/api/auth/sign-up/email', { method: 'POST', headers: { 'content-type': 'application/json', 'x-captcha-response': form.querySelector('[data-turnstile-token]')?.value || '' }, body: JSON.stringify(data) });
         if (response.ok) window.location.href = `/verify-email?email=${encodeURIComponent(String(data.email || ''))}&sent=1`;
-        else { const result = await response.json().catch(() => ({})); showToast(result.message || 'Unable to create account. Please check your details.'); }
+        else {
+          window.dispatchEvent(new CustomEvent('freecoffee:turnstile-reset'));
+          const result = await response.json().catch(() => ({}));
+          showToast(result.message || 'Unable to create account. Please check your details.');
+        }
       });
     </script>
   </body>

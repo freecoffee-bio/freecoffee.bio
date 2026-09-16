@@ -35,7 +35,13 @@ import { Turnstile } from '../components/turnstile';
         const redirect = new URLSearchParams(window.location.search).get('redirect') || '/';
         if (response.ok && result.twoFactorRedirect) window.location.href = `/two-factor?redirect=${encodeURIComponent(redirect)}`;
         else if (response.ok) window.location.href = redirect;
-        else showToast(result.message || 'Unable to sign in. Check your credentials and try again.');
+        else {
+          window.dispatchEvent(new CustomEvent('freecoffee:turnstile-reset'));
+          if (response.status === 403 && result.code === 'EMAIL_NOT_VERIFIED') {
+            const email = form.querySelector('[name="email"]')?.value || '';
+            window.location.href = `/verify-email?email=${encodeURIComponent(email)}`;
+          } else showToast(result.message || 'Unable to sign in. Check your credentials and try again.');
+        }
       });
     </script>
   </body>

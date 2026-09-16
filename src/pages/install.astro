@@ -37,7 +37,10 @@ const siteUrl = Astro.url.origin;
         event.preventDefault();
         const response = await fetch('/api/install', { method: 'POST', headers: { 'x-captcha-response': form.querySelector('[data-turnstile-token]')?.value || '' }, body: new FormData(form) });
         if (response.redirected) window.location.href = response.url;
-        else if (!response.ok) showToast((await response.json().catch(() => ({}))).error || 'Unable to complete installation.');
+        else if (!response.ok) {
+          window.dispatchEvent(new CustomEvent('freecoffee:turnstile-reset'));
+          showToast((await response.json().catch(() => ({}))).error || 'Unable to complete installation.');
+        }
       });
     </script>
   </body>

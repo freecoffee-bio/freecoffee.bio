@@ -399,7 +399,7 @@ export const notificationDeliveries = sqliteTable('notification_deliveries', {
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 }, (table) => [
   index('notification_deliveries_processing_locked_idx').on(table.lockedAt).where(sql`${table.status} = 'processing'`),
-  index('notification_deliveries_pending_created_idx').on(table.createdAt).where(sql`${table.channel} = 'email' AND ${table.status} IN ('pending', 'retry')`),
+  index('notification_deliveries_queue_lookup_idx').on(table.channel, table.status, table.createdAt),
 ]);
 
 export const chainPaymentAmountSlots = sqliteTable('chain_payment_amount_slots', {

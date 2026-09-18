@@ -57,14 +57,18 @@ export async function getOrCreateCreator(user: { id: string; name: string }) {
   const handle = 'site';
 
   const now = new Date();
-  const [creator] = await db.insert(creatorProfiles).values({
+  await db.insert(creatorProfiles).values({
     userId: user.id,
     handle,
     displayName: user.name,
     createdAt: now,
     updatedAt: now,
-  }).returning();
-  await db.insert(creatorPageSettings).values({ creatorId: creator.id, updatedAt: now });
+  }).onConflictDoNothing();
+
+  const [creator] = await db.select().from(creatorProfiles).where(eq(creatorProfiles.handle, handle)).limit(1);
+  if (!creator) throw new Error('Unable to initialize creator profile.');
+
+  await db.insert(creatorPageSettings).values({ creatorId: creator.id, updatedAt: now }).onConflictDoNothing();
   return creator;
 }
 

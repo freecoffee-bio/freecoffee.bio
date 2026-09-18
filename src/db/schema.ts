@@ -134,6 +134,7 @@ export const creatorProfiles = sqliteTable('creator_profiles', {
 export const creatorPageSettings = sqliteTable('creator_page_settings', {
   creatorId: integer('creator_id').primaryKey().references(() => creatorProfiles.id, { onDelete: 'cascade' }),
   themeColor: text('theme_color').notNull().default('#111111'),
+  coverImageUrl: text('cover_image_url'),
   welcomeMessage: text('welcome_message'),
   defaultSupportAmount: integer('default_support_amount').notNull().default(500),
   suggestedSupportAmounts: text('suggested_support_amounts').notNull().default('[300,500,1000]'),

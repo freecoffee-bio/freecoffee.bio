@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-import { ChevronDown, ExternalLink, Globe, LogOut, Moon, Package, ShieldCheck, Share2, Sun, UserRound } from 'lucide-react'
+import { Camera, ChevronDown, ExternalLink, Globe, LogOut, Moon, Package, ShieldCheck, Share2, Sun, UserRound } from 'lucide-react'
 import { SiTwitch, SiX, SiYoutube } from '@icons-pack/react-simple-icons'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -58,6 +58,7 @@ type CreatorPageProps = {
 export function CreatorPage({ currentUser, creator = { name: 'Creator', showSupport: true, showShop: true, products: [] }, isAdmin = false, adminPath = 'admin' }: CreatorPageProps) {
   const [tab, setTab] = useState('About')
   const [darkMode, setDarkMode] = useState(false)
+  const [uploadingCover, setUploadingCover] = useState(false)
   const links = socialLinks(creator.socialLinks)
   const creatorOccupations = occupations(creator.whatDo)
 
@@ -77,6 +78,22 @@ export function CreatorPage({ currentUser, creator = { name: 'Creator', showSupp
   function selectTab(value: string) {
     setTab(value)
     window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#${value.toLowerCase()}`)
+  }
+
+  async function replaceCover(file: File) {
+    setUploadingCover(true)
+    try {
+      const form = new FormData()
+      form.set('file', file)
+      const response = await fetch('/api/admin/cover', { method: 'POST', body: form })
+      const result = await response.json().catch(() => ({})) as { error?: string; image?: string }
+      if (!response.ok || !result.image) throw new Error(result.error || 'Unable to upload cover image.')
+      window.location.reload()
+    } catch (error) {
+      window.dispatchEvent(new CustomEvent('freecoffee:toast', { detail: { message: error instanceof Error ? error.message : 'Unable to upload cover image.', type: 'error' } }))
+    } finally {
+      setUploadingCover(false)
+    }
   }
 
   function toggleTheme() {
@@ -101,7 +118,7 @@ export function CreatorPage({ currentUser, creator = { name: 'Creator', showSupp
       </header>
 
       <section className="border-b bg-background">
-        <div className="h-40 bg-(--brand-soft) sm:h-52" />
+        <div className="relative mx-auto h-40 max-w-5xl overflow-hidden sm:h-52">{creator.coverImageUrl && <img src={creator.coverImageUrl} alt="" className="size-full object-cover" />}{isAdmin && <label className={`absolute right-4 top-4 inline-flex items-center gap-2 rounded-md bg-background/90 px-3 py-2 text-sm font-medium shadow-sm backdrop-blur ${uploadingCover ? 'cursor-wait opacity-70' : 'cursor-pointer hover:bg-background'}`}><Camera className="size-4" /> {uploadingCover ? 'Uploading...' : 'Cover'}<input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={uploadingCover} onChange={(event) => { const file = event.target.files?.[0]; if (file) void replaceCover(file); event.target.value = '' }} /></label>}</div>
         <div className="mx-auto grid max-w-5xl gap-5 px-4 pb-7 pt-5 sm:grid-cols-[112px_1fr_auto] sm:items-end sm:gap-6 sm:pt-6">
           <Avatar className="-mt-14 size-24 border-8 border-background bg-primary text-4xl font-semibold text-primary-foreground shadow sm:size-28"><AvatarImage src={creator.image ?? undefined} alt={`${creator.name} profile photo`} /><AvatarFallback className="bg-primary text-4xl font-semibold text-primary-foreground">{creator.name.charAt(0).toUpperCase()}</AvatarFallback></Avatar>
           <div className="min-w-0">

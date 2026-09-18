@@ -82,6 +82,7 @@ CREATE UNIQUE INDEX `creator_integrations_creator_platform_unique` ON `creator_i
 CREATE TABLE `creator_page_settings` (
 	`creator_id` integer PRIMARY KEY NOT NULL,
 	`theme_color` text DEFAULT '#111111' NOT NULL,
+	`cover_image_url` text,
 	`welcome_message` text,
 	`default_support_amount` integer DEFAULT 500 NOT NULL,
 	`suggested_support_amounts` text DEFAULT '[300,500,1000]' NOT NULL,

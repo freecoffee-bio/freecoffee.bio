@@ -29,9 +29,9 @@ export const POST: APIRoute = async ({ request }) => {
       socialLinks: typeof body.socialLinks === 'string' ? body.socialLinks : undefined,
     });
     const currency = (await getSiteSettings()).currency;
-    const defaultSupportAmount = typeof body.defaultSupportAmount === 'string' ? amountToMinor(body.defaultSupportAmount, currency) : undefined;
-    const supportGoalAmount = typeof body.supportGoalAmount === 'string' ? amountToMinor(body.supportGoalAmount, currency) : undefined;
-    const minimumSupportAmount = typeof body.minimumSupportAmount === 'string' ? amountToMinor(body.minimumSupportAmount, currency) : undefined;
+    const defaultSupportAmount = typeof body.defaultSupportAmount === 'string' && body.defaultSupportAmount.trim() ? amountToMinor(body.defaultSupportAmount, currency) : undefined;
+    const supportGoalAmount = typeof body.supportGoalAmount === 'string' && body.supportGoalAmount.trim() ? amountToMinor(body.supportGoalAmount, currency) : undefined;
+    const minimumSupportAmount = typeof body.minimumSupportAmount === 'string' && body.minimumSupportAmount.trim() ? amountToMinor(body.minimumSupportAmount, currency) : undefined;
     const suggestedSupportAmounts = Array.isArray(body.suggestedSupportAmounts)
       ? body.suggestedSupportAmounts.map((amount) => typeof amount === 'string' ? amountToMinor(amount, currency) : -1)
       : undefined;
@@ -40,11 +40,10 @@ export const POST: APIRoute = async ({ request }) => {
     if (suggestedSupportAmounts && minimumSupportAmount !== undefined && suggestedSupportAmounts.some((amount) => amount < minimumSupportAmount)) throw new Error('Suggested amounts cannot be below the minimum amount.');
     if (body.supportWording !== undefined && body.supportWording !== 'tip' && body.supportWording !== 'donate') throw new Error('Choose Tip or Donate wording.');
     if (typeof body.supportThankYouMessage === 'string' && body.supportThankYouMessage.length > 1000) throw new Error('Thank-you message must be 1,000 characters or fewer.');
-    if (typeof body.themeColor === 'string' || typeof body.welcomeMessage === 'string' || typeof body.terms === 'string' || typeof body.analyticsCode === 'string' || defaultSupportAmount !== undefined || typeof body.allowAnonymous === 'boolean' || typeof body.supportGoalEnabled === 'boolean' || typeof body.supportGoalTitle === 'string' || supportGoalAmount !== undefined || typeof body.supportGoalDescription === 'string' || suggestedSupportAmounts !== undefined || minimumSupportAmount !== undefined || body.supportWording === 'tip' || body.supportWording === 'donate' || typeof body.supportThankYouMessage === 'string') {
+    if (typeof body.terms === 'string' || typeof body.analyticsCode === 'string' || defaultSupportAmount !== undefined || typeof body.allowAnonymous === 'boolean' || typeof body.supportGoalEnabled === 'boolean' || typeof body.supportGoalTitle === 'string' || supportGoalAmount !== undefined || typeof body.supportGoalDescription === 'string' || suggestedSupportAmounts !== undefined || minimumSupportAmount !== undefined || body.supportWording === 'tip' || body.supportWording === 'donate' || typeof body.supportThankYouMessage === 'string') {
       if (typeof body.analyticsCode === 'string' && body.analyticsCode.length > 20_000) throw new Error('Analytics code must be 20,000 characters or fewer.');
       await updatePageSettings(user, {
-        themeColor: typeof body.themeColor === 'string' ? body.themeColor : undefined,
-        welcomeMessage: typeof body.welcomeMessage === 'string' ? body.welcomeMessage : undefined,
+
         terms: typeof body.terms === 'string' ? body.terms : undefined,
         analyticsCode: typeof body.analyticsCode === 'string' ? body.analyticsCode.trim() || null : undefined,
         defaultSupportAmount: defaultSupportAmount !== undefined && defaultSupportAmount > 0 ? defaultSupportAmount : undefined,

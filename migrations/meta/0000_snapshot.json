@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "3af3d8ab-ea15-456f-a4c3-2ef27879c018",
+  "id": "caf33698-6ae1-4b33-90fe-c9cded4caefe",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "account": {
@@ -571,23 +571,8 @@
           "notNull": true,
           "autoincrement": false
         },
-        "theme_color": {
-          "name": "theme_color",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'#111111'"
-        },
         "cover_image_url": {
           "name": "cover_image_url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "welcome_message": {
-          "name": "welcome_message",
           "type": "text",
           "primaryKey": false,
           "notNull": false,

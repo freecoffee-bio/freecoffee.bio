@@ -10,8 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { showToast } from '@/lib/toast'
 
 type PageSettings = {
-  themeColor: string | null
-  welcomeMessage: string | null
+
   defaultSupportAmount: number | null
   allowAnonymous: boolean | null
   showSupport: boolean | null
@@ -75,6 +74,8 @@ export function PageSettingsForm({ displayName, currency, page }: { displayName:
     event.preventDefault()
     setSaving(true)
     const data = new FormData(event.currentTarget)
+    const supportGoalAmount = data.get('supportGoalAmount')
+    const supportGoalAmountValue = typeof supportGoalAmount === 'string' && supportGoalAmount.trim() ? supportGoalAmount : undefined
 
     try {
       const response = await fetch('/api/admin/creator', {
@@ -82,8 +83,6 @@ export function PageSettingsForm({ displayName, currency, page }: { displayName:
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           displayName,
-          themeColor: data.get('themeColor'),
-          welcomeMessage: data.get('welcomeMessage'),
 
           defaultSupportAmount: String(data.get('defaultSupportAmount')),
           allowAnonymous: toggles.allowAnonymous,
@@ -91,7 +90,7 @@ export function PageSettingsForm({ displayName, currency, page }: { displayName:
           showShop: toggles.showShop,
           supportGoalEnabled: toggles.supportGoalEnabled,
           supportGoalTitle: data.get('supportGoalTitle'),
-          supportGoalAmount: String(data.get('supportGoalAmount')),
+          supportGoalAmount: supportGoalAmountValue,
           supportGoalDescription: data.get('supportGoalDescription'),
           terms: data.get('terms'),
           analyticsCode: analyticsMode === 'google' ? (measurementId.trim() ? googleAnalyticsCode(measurementId.trim()) : '') : analyticsCode,
@@ -112,14 +111,6 @@ export function PageSettingsForm({ displayName, currency, page }: { displayName:
 
   return <form onSubmit={save}>
     <FieldGroup>
-      <Field>
-        <FieldLabel htmlFor="page-theme-color">Theme color</FieldLabel>
-        <Input id="page-theme-color" name="themeColor" type="color" defaultValue={page?.themeColor ?? '#111111'} className="h-11 w-16 p-1" />
-      </Field>
-      <Field>
-        <FieldLabel htmlFor="page-welcome-message">Welcome message</FieldLabel>
-        <Textarea id="page-welcome-message" name="welcomeMessage" rows={4} defaultValue={page?.welcomeMessage ?? ''} />
-      </Field>
 
       <Field>
         <FieldLabel htmlFor="page-default-support">Default support amount</FieldLabel>

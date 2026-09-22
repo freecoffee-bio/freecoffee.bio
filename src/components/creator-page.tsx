@@ -43,9 +43,9 @@ function socialPlatform(link: SocialLink) {
   return { label: link.label?.trim() || 'Social link', Icon: ExternalLink }
 }
 
-function tabFromHash(hash: string) {
+function tabFromHash(hash: string, availableTabs = tabs) {
   const value = decodeURIComponent(hash.replace(/^#/, ''))
-  return tabs.find((item) => item.toLowerCase() === value) ?? 'About'
+  return availableTabs.find((item) => item.toLowerCase() === value) ?? 'About'
 }
 
 type CreatorPageProps = {
@@ -61,19 +61,20 @@ export function CreatorPage({ currentUser, creator = { name: 'Creator', showSupp
   const [uploadingCover, setUploadingCover] = useState(false)
   const links = socialLinks(creator.socialLinks)
   const creatorOccupations = occupations(creator.whatDo)
+  const visibleTabs = creator.showShop === false ? tabs.filter((item) => item !== 'Shop') : tabs
 
   useEffect(() => {
     const dark = document.documentElement.classList.contains('dark')
     setDarkMode(dark)
-    setTab(tabFromHash(window.location.hash))
+    setTab(tabFromHash(window.location.hash, visibleTabs))
 
     function syncTab() {
-      setTab(tabFromHash(window.location.hash))
+      setTab(tabFromHash(window.location.hash, visibleTabs))
     }
 
     window.addEventListener('hashchange', syncTab)
     return () => window.removeEventListener('hashchange', syncTab)
-  }, [])
+  }, [creator.showShop])
 
   function selectTab(value: string) {
     setTab(value)
@@ -129,7 +130,7 @@ export function CreatorPage({ currentUser, creator = { name: 'Creator', showSupp
           </div>
           <div className="flex gap-2"><Button variant="outline" size="icon" aria-label="Share creator page"><Share2 className="size-4" /></Button>{isAdmin && <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="icon" aria-label="More options">•••</Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem asChild><a href={`/${adminPath}/settings`}>Edit page</a></DropdownMenuItem><DropdownMenuItem asChild><a href={`/${adminPath}/settings?tab=page`}>Edit goal</a></DropdownMenuItem></DropdownMenuContent></DropdownMenu>}<Button variant="outline" size="icon" type="button" onClick={toggleTheme} aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}>{darkMode ? <Sun className="size-4" /> : <Moon className="size-4" />}</Button></div>
         </div>
-        <div className="mx-auto flex max-w-5xl gap-6 overflow-x-auto px-4" role="tablist" aria-label="Creator page sections">{tabs.map((item) => <button key={item} type="button" role="tab" aria-selected={tab === item} onClick={() => selectTab(item)} className={`min-h-11 shrink-0 border-b-2 px-1 text-sm ${tab === item ? 'border-primary font-medium text-foreground' : 'border-transparent text-muted-foreground'}`}>{item}{item === 'Posts' && <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-[10px]">{creator.posts?.length ?? 0}</span>}</button>)}</div>
+        <div className="mx-auto flex max-w-5xl gap-6 overflow-x-auto px-4" role="tablist" aria-label="Creator page sections">{visibleTabs.map((item) => <button key={item} type="button" role="tab" aria-selected={tab === item} onClick={() => selectTab(item)} className={`min-h-11 shrink-0 border-b-2 px-1 text-sm ${tab === item ? 'border-primary font-medium text-foreground' : 'border-transparent text-muted-foreground'}`}>{item}{item === 'Posts' && <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-[10px]">{creator.posts?.length ?? 0}</span>}</button>)}</div>
       </section>
 
       <div className={`mx-auto grid max-w-5xl gap-5 px-4 py-6 ${tab === 'About' ? 'lg:grid-cols-[1.08fr_.92fr] lg:items-start' : ''}`}>

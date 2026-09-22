@@ -227,13 +227,13 @@ html.admin-page body[data-scroll-locked] {
   background: var(--admin-paper);
   color: var(--admin-ink);
 }
-.admin-shell { width: min(100%, 1200px); min-height: 100vh; margin: 0 auto; display: grid; grid-template-columns: 248px minmax(0, 1fr); }
+.admin-shell { width: min(100%, 1200px); min-height: 100vh; margin: 0 auto; display: grid; grid-template-columns: 248px minmax(0, 1fr); align-items: start; }
 .activity-row { min-width: 0; }
 .activity-row > span { min-width: 0; }
 .activity-row small, .activity-row b { overflow-wrap: anywhere; }
 .product-row, .product-actions { min-width: 0; }
 .product-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
-.admin-sidebar { position: sticky; top: 0; z-index: 30; display: flex; height: 100vh; flex-direction: column; padding: 25px 20px 18px; background: color-mix(in oklch, var(--admin-paper) 88%, var(--admin-panel)); border-right: 1px solid var(--admin-line); overflow: hidden; }
+.admin-sidebar { position: sticky; top: 0; align-self: start; z-index: 30; display: flex; height: 100vh; flex-direction: column; padding: 25px 20px 18px; background: color-mix(in oklch, var(--admin-paper) 88%, var(--admin-panel)); border-right: 1px solid var(--admin-line); overflow: hidden; }
 .admin-brand { display: inline-flex; align-items: center; margin: 0 9px 38px; text-decoration: none; }
 .admin-brand img { display: block; width: auto; height: 42px; max-width: 100%; object-fit: contain; }
 .admin-nav { position: relative; z-index: 1; display: grid; gap: 2px; }

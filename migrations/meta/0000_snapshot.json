@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "ef3779e5-f801-4515-b892-5bd214277192",
+  "id": "3af3d8ab-ea15-456f-a4c3-2ef27879c018",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "account": {
@@ -1414,13 +1414,14 @@
           "isUnique": false,
           "where": "\"notification_deliveries\".\"status\" = 'processing'"
         },
-        "notification_deliveries_pending_created_idx": {
-          "name": "notification_deliveries_pending_created_idx",
+        "notification_deliveries_queue_lookup_idx": {
+          "name": "notification_deliveries_queue_lookup_idx",
           "columns": [
+            "channel",
+            "status",
             "created_at"
           ],
-          "isUnique": false,
-          "where": "\"notification_deliveries\".\"channel\" = 'email' AND \"notification_deliveries\".\"status\" IN ('pending', 'retry')"
+          "isUnique": false
         }
       },
       "foreignKeys": {},

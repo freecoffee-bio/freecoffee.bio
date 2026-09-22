@@ -207,7 +207,7 @@ CREATE TABLE `notification_deliveries` (
 --> statement-breakpoint
 CREATE UNIQUE INDEX `notification_deliveries_dedupe_key_unique` ON `notification_deliveries` (`dedupe_key`);--> statement-breakpoint
 CREATE INDEX `notification_deliveries_processing_locked_idx` ON `notification_deliveries` (`locked_at`) WHERE "notification_deliveries"."status" = 'processing';--> statement-breakpoint
-CREATE INDEX `notification_deliveries_pending_created_idx` ON `notification_deliveries` (`created_at`) WHERE "notification_deliveries"."channel" = 'email' AND "notification_deliveries"."status" IN ('pending', 'retry');--> statement-breakpoint
+CREATE INDEX `notification_deliveries_queue_lookup_idx` ON `notification_deliveries` (`channel`,`status`,`created_at`);--> statement-breakpoint
 CREATE TABLE `notification_templates` (
 	`id` text PRIMARY KEY NOT NULL,
 	`event_key` text NOT NULL,
